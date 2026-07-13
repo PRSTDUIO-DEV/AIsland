@@ -1,6 +1,6 @@
 # AIsland
 
-Dynamic Island–style usage meter for AI coding CLIs (Claude / GPT / Gemini),
+Dynamic Island–style usage meter for AI coding CLIs (Claude / Codex / Gemini),
 pinned to the MacBook notch (falls back to a floating top-center pill on
 screens without a notch).
 
@@ -9,7 +9,7 @@ screens without a notch).
 | Provider | Data | Auth |
 |----------|------|------|
 | Claude | Session 5h / Weekly / per-model limits, live from the OAuth usage API | auto from Claude Code's Keychain entry |
-| GPT (Codex) | Rate-limit windows parsed from the newest `~/.codex/sessions` log | auto from `~/.codex/auth.json`; "Connect" runs `codex login` |
+| Codex | Live rate-limit windows from the same API the Codex CLI uses (session-log fallback) + manual reset-credit button | auto from `~/.codex/auth.json`; "Connect" runs `codex login` |
 | Gemini | auth status only (no public usage API) | auto from `~/.gemini/oauth_creds.json`; "Connect" runs the Gemini CLI login |
 
 **Install**

@@ -10,7 +10,7 @@ enum Provider: String, CaseIterable, Identifiable {
     var name: String {
         switch self {
         case .claude: "Claude"
-        case .gpt: "GPT"
+        case .gpt: "Codex"
         case .gemini: "Gemini"
         }
     }

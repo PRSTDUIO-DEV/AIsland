@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://prstduio-dev.github.io/AIsland/sitemap.xml

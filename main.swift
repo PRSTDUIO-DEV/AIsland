@@ -47,7 +47,7 @@ struct MiniGauge: View {
                     .foregroundStyle(.white)
                     .contentTransition(.numericText())
             } else {
-                Text("—")
+                Text("…")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.35))
             }

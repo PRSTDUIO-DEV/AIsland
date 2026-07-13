@@ -224,9 +224,12 @@ struct IslandRootView: View {
             }
             .frame(maxWidth: .infinity)
             Color.clear.frame(width: notchW)
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 if state.items.count > 1 {
                     MiniGauge(item: state.items[1], tint: tint)
+                    if state.items.count > 2 {
+                        MiniGauge(item: state.items[2], tint: tint)
+                    }
                 } else {
                     Circle()
                         .fill(state.connected ? Color(red: 0.35, green: 0.85, blue: 0.55) : .orange)
@@ -242,7 +245,7 @@ struct IslandRootView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("AIsland, \(model.selected.name) usage")
         .accessibilityValue(
-            model.current.items.prefix(2)
+            model.current.items.prefix(3)
                 .map { "\($0.label) \(Int($0.percent)) percent" }
                 .joined(separator: ", ")
         )
@@ -394,6 +397,9 @@ final class IslandController: NSObject, NSMenuDelegate {
     private static let wing: CGFloat = 104
     private static let maxHeight: CGFloat = 420
 
+    // Wider wings when a third gauge (per-model limit) is showing.
+    private var wingWidth: CGFloat { model.current.items.count > 2 ? 150 : Self.wing }
+
     override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         panel = NSPanel(
@@ -429,8 +435,9 @@ final class IslandController: NSObject, NSMenuDelegate {
             .combineLatest(model.$states, model.$onboarding)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _, _, _ in
-                guard let self, self.model.hovering else { return }
-                self.setExpanded(true)
+                guard let self else { return }
+                // Re-frame even when collapsed — the pill width depends on gauge count.
+                self.setExpanded(self.model.hovering)
             }
             .store(in: &cancellables)
 
@@ -467,7 +474,7 @@ final class IslandController: NSObject, NSMenuDelegate {
         hostView = host
         panel.contentView = host
 
-        let width = notchW + 2 * Self.wing
+        let width = notchW + 2 * wingWidth
         panel.setFrame(
             NSRect(
                 x: target.frame.midX - width / 2,
@@ -480,6 +487,14 @@ final class IslandController: NSObject, NSMenuDelegate {
 
     private func setExpanded(_ expanded: Bool) {
         hostView?.interactiveHeight = expanded ? expandedHeight() : barH
+        guard let screen else { return }
+        let width = notchW + 2 * wingWidth
+        var frame = panel.frame
+        if abs(frame.width - width) > 0.5 {
+            frame.origin.x = screen.frame.midX - width / 2
+            frame.size.width = width
+            panel.setFrame(frame, display: true)
+        }
     }
 
     private func expandedHeight() -> CGFloat {

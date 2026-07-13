@@ -294,10 +294,16 @@ enum ClaudeFetcher {
             case "weekly_scoped": label = "Weekly · \(scopeName ?? "scoped")"
             default: label = l.kind
             }
+            let short: String
+            switch l.kind {
+            case "session": short = "5h"
+            case "weekly_scoped": short = scopeName ?? "7d" // model name in the collapsed pill
+            default: short = "7d"
+            }
             return UsageItem(
                 id: l.kind + (scopeName ?? ""),
                 label: label,
-                short: l.kind == "session" ? "5h" : "7d",
+                short: short,
                 percent: l.percent ?? 0,
                 severity: l.severity ?? "normal",
                 resetsAt: parseISO(l.resets_at)
@@ -661,7 +667,8 @@ final class UsageModel: ObservableObject {
                 .gpt: CodexFetcher.fetch(),
                 .gemini: GeminiFetcher.fetch(),
             ]
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
                 self.isRefreshing = false
                 // Keep last good data when a provider hiccups (network blip, log rotation).
                 var merged: [Provider: ProviderState] = [:]
@@ -683,10 +690,11 @@ final class UsageModel: ObservableObject {
                    soonest > Date() {
                     DispatchQueue.main.asyncAfter(
                         deadline: .now() + soonest.timeIntervalSinceNow + 1
-                    ) { [weak self] in
+                    ) {
                         // Full refresh, not refreshIfStale — the 30s staleness throttle
                         // would swallow this exact-moment retry and leave "retrying…" stuck.
-                        self?.refresh()
+                        // Strong capture is fine: the model lives for the app's lifetime.
+                        self.refresh()
                     }
                 }
             }

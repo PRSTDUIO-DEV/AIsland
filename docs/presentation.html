@@ -150,6 +150,48 @@ svg.ring .prog { fill: none; stroke-width: 3; stroke-linecap: round;
   box-shadow: 0 0 22px rgba(26,168,133,.35); animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 16px rgba(26,168,133,.25); } 50% { box-shadow: 0 0 32px rgba(26,168,133,.55); } }
 
+/* ===== slide-3 self-playing cursor demo (10s loop) ===== */
+.demo-screen { height: clamp(280px, 44vh, 330px); }
+.demo-screen .mock-detail { overflow: hidden; max-height: none;
+  animation: mockOpen 10s ease-in-out infinite; }
+@keyframes mockOpen {
+  0%, 26% { max-height: 0; }
+  36%, 84% { max-height: 300px; }
+  94%, 100% { max-height: 0; } }
+.cursor { position: absolute; width: 20px; height: 20px; z-index: 5; pointer-events: none;
+  left: 76%; top: 80%; opacity: 0; filter: drop-shadow(0 2px 5px rgba(0,0,0,.6));
+  animation: cursorPath 10s ease-in-out infinite; }
+@keyframes cursorPath {
+  0%   { left: 76%; top: 80%; opacity: 0; transform: scale(1); }
+  6%   { opacity: 1; }
+  22%  { left: 50.5%; top: 13.5%; }
+  36%  { left: 50.5%; top: 13.5%; }
+  50%  { left: 40%;  top: 26%;  transform: scale(1); }
+  55%  { transform: scale(.8); }
+  60%  { transform: scale(1); }
+  76%  { left: 40%;  top: 26%;  opacity: 1; }
+  90%  { left: 82%;  top: 86%;  opacity: 0; }
+  100% { left: 82%;  top: 86%;  opacity: 0; } }
+.click-ring { position: absolute; left: 40.6%; top: 27.5%; width: 26px; height: 26px; z-index: 4;
+  border: 2px solid rgba(26,168,133,.9); border-radius: 50%; pointer-events: none;
+  transform: translate(-50%, -50%) scale(.3); opacity: 0;
+  animation: clickRing 10s ease-out infinite; }
+@keyframes clickRing {
+  0%, 54% { opacity: 0; transform: translate(-50%,-50%) scale(.3); }
+  56% { opacity: .9; transform: translate(-50%,-50%) scale(.5); }
+  66% { opacity: 0; transform: translate(-50%,-50%) scale(2.1); }
+  100% { opacity: 0; } }
+.demo-chip { animation: chipFlash 10s ease-in-out infinite; }
+@keyframes chipFlash {
+  0%, 54% { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.1); color: var(--dim); }
+  57%, 68% { background: rgba(26,168,133,.30); border-color: rgba(26,168,133,.8); color: #fff; }
+  76%, 100% { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.1); color: var(--dim); } }
+.demo-screen .cursor, .demo-screen .click-ring, .demo-screen .mock-detail, .demo-screen .demo-chip {
+  animation-play-state: paused; }
+.visible .demo-screen .cursor, .visible .demo-screen .click-ring,
+.visible .demo-screen .mock-detail, .visible .demo-screen .demo-chip {
+  animation-play-state: running; }
+
 /* ===== components ===== */
 .bullets { list-style: none; display: flex; flex-direction: column; gap: clamp(.5rem, 1.4vh, 1rem); }
 .bullets li { display: flex; gap: .8em; align-items: baseline; line-height: 1.5; color: var(--dim); max-width: 36em; }
@@ -180,7 +222,8 @@ svg.ring .prog { fill: none; stroke-width: 3; stroke-linecap: round;
 .stats { display: flex; flex-wrap: wrap; gap: clamp(.8rem, 3vw, 2.4rem); justify-content: flex-start; }
 .stat b { font-family: var(--display); font-weight: 700; font-size: clamp(1.3rem, 3.4vw, 2.4rem); display: block; }
 .stat span { color: var(--faint); font-size: var(--small-size); letter-spacing: .08em; text-transform: uppercase; }
-.appicon { width: clamp(110px, 18vw, 190px); filter: drop-shadow(0 24px 50px rgba(0,0,0,.7));
+.appicon { width: clamp(110px, 18vw, 190px); height: auto;
+  filter: drop-shadow(0 24px 50px rgba(0,0,0,.7));
   transition: transform .4s cubic-bezier(.2,.8,.2,1); }
 .appicon:hover { transform: scale(1.06) rotate(-2deg); }
 a.repo { color: var(--ink); font-family: var(--display); font-weight: 600; text-decoration: none;
@@ -211,11 +254,15 @@ a.repo:hover { color: var(--claude); }
 @media (max-height: 600px) { .nav-dots, .keyboard-hint, .num { display: none; } }
 @media (max-width: 600px) { .grid3 { grid-template-columns: 1fr; } .stats { gap: 1rem; } }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .2s !important; }
+  *, *::before, *::after { animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important; transition-duration: .2s !important; }
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; }
   .visible .type { max-width: 100%; animation: none; }
   svg.ring .prog { stroke-dashoffset: var(--off) !important; }
+  .cursor, .click-ring { display: none; }
+  .demo-screen .mock-detail { animation: none !important; max-height: none; }
+  .demo-screen { height: auto; }
 }
 </style>
 </head>
@@ -278,7 +325,7 @@ a.repo:hover { color: var(--claude); }
   <div class="slide-content">
     <span class="num reveal">02</span>
     <h2 class="reveal">Just glance up.</h2>
-    <div class="screen reveal" role="img" aria-label="AIsland card expanded below the macOS menu bar, showing three Claude limits">
+    <div class="screen demo-screen reveal" role="img" aria-label="AIsland demo: a cursor hovers the pill, the card expands, and a provider chip is clicked">
       <div class="menubar"><span class="sk" style="width:10px"></span><span class="sk" style="width:34px"></span><span class="sk" style="width:26px"></span><span class="right"><span class="sk" style="width:18px"></span><span class="sk" style="width:18px"></span><span class="sk" style="width:30px"></span></span></div>
       <div class="mockcard">
         <div class="island-bar">
@@ -291,18 +338,21 @@ a.repo:hover { color: var(--claude); }
             <small>7d</small>58%
           </span>
         </div>
-        <div class="chips">
-          <span class="mchip on-c">✳ Claude <span class="dot"></span></span>
-          <span class="mchip">⬡ GPT <span class="dot"></span></span>
-          <span class="mchip">✦ Gemini <span class="dot"></span></span>
-        </div>
-        <div class="mini"><div class="row"><span>Session (5h)</span><span class="when">resets 3h 15m</span><b class="accent-c">31%</b></div><div class="fillbar"><i style="--w:31%;background:var(--claude)"></i></div></div>
-        <div class="mini"><div class="row"><span>Weekly · all models</span><span class="when">resets 4d 17h</span><b class="accent-c">58%</b></div><div class="fillbar"><i style="--w:58%;background:var(--claude)"></i></div></div>
-        <div class="mini"><div class="row"><span>Weekly · Fable</span><span class="when">resets 4d 17h</span><b class="accent-c">27%</b></div><div class="fillbar"><i style="--w:27%;background:var(--claude)"></i></div></div>
-        <div class="mocknote">Max 20× plan</div>
-        <div class="mockfooter"><span class="when">synced just now</span><span class="fbtn">startup ✓</span><span class="fbtn">refresh</span><span class="fsep"></span><span class="fbtn">quit</span></div>
+        <div class="mock-detail"><div>
+          <div class="chips">
+            <span class="mchip on-c">✳ Claude <span class="dot"></span></span>
+            <span class="mchip demo-chip">⬡ GPT <span class="dot"></span></span>
+            <span class="mchip">✦ Gemini <span class="dot"></span></span>
+          </div>
+          <div class="mini"><div class="row"><span>Session (5h)</span><span class="when">resets 3h 15m</span><b class="accent-c">31%</b></div><div class="fillbar"><i style="--w:31%;background:var(--claude)"></i></div></div>
+          <div class="mini"><div class="row"><span>Weekly · all models</span><span class="when">resets 4d 17h</span><b class="accent-c">58%</b></div><div class="fillbar"><i style="--w:58%;background:var(--claude)"></i></div></div>
+          <div class="mini"><div class="row"><span>Weekly · Fable</span><span class="when">resets 4d 17h</span><b class="accent-c">27%</b></div><div class="fillbar"><i style="--w:27%;background:var(--claude)"></i></div></div>
+          <div class="mocknote">Max 20× plan</div>
+          <div class="mockfooter"><span class="when">synced just now</span><span class="fbtn">startup ✓</span><span class="fbtn">refresh</span><span class="fsep"></span><span class="fbtn">quit</span></div>
+        </div></div>
       </div>
-      <div class="pad"></div>
+      <span class="click-ring"></span>
+      <svg class="cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 2.5 L18.5 13.2 L12.6 14.1 L16 20.8 L13.2 22.2 L9.8 15.4 L5.5 19.5 Z" fill="#fff" stroke="#1a1a1a" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </div>
     <p class="tag reveal">A quiet pill at the top of your screen. Hover — live bars, ticking reset countdowns, your plan. Click a provider chip to pin it.</p>
   </div>

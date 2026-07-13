@@ -155,7 +155,10 @@ struct IslandRootView: View {
     private var island: some View {
         VStack(spacing: 0) {
             collapsedRow
-            if hovering { details }
+            if hovering {
+                // Tick once a second while expanded so countdowns and synced-ago run live.
+                TimelineView(.periodic(from: .now, by: 1)) { _ in details }
+            }
         }
         .background(
             shape.fill(Color.black)

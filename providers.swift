@@ -70,9 +70,10 @@ func parseISO(_ s: String?) -> Date? {
 
 func resetText(_ d: Date?) -> String {
     guard let d else { return "" }
-    let s = d.timeIntervalSinceNow
+    let s = Int(d.timeIntervalSinceNow)
     if s <= 0 { return "resetting…" }
-    let h = Int(s) / 3600, m = (Int(s) % 3600) / 60
+    if s < 600 { return "resets \(s / 60)m \(s % 60)s" }
+    let h = s / 3600, m = (s % 3600) / 60
     if h >= 24 { return "resets \(h / 24)d \(h % 24)h" }
     if h > 0 { return "resets \(h)h \(m)m" }
     return "resets \(m)m"
@@ -83,6 +84,7 @@ func agoText(_ d: Date?) -> String {
     let s = Int(-d.timeIntervalSinceNow)
     if s < 10 { return "synced just now" }
     if s < 60 { return "synced \(s)s ago" }
+    if s < 600 { return "synced \(s / 60)m \(s % 60)s ago" }
     if s < 3600 { return "synced \(s / 60)m ago" }
     if s < 86400 { return "synced \(s / 3600)h \((s % 3600) / 60)m ago" }
     return "synced \(s / 86400)d ago"

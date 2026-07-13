@@ -226,11 +226,12 @@ struct IslandRootView: View {
                 Text(model.selected.glyph)
                     .font(.system(size: 11))
                     .foregroundStyle(tint)
-                if style == .dots, let worst = items.map(\.percent).max() {
-                    Text("\(Int(worst))%")
+                if style == .dots, let worst = items.max(by: { $0.percent < $1.percent }) {
+                    Text("\(Int(worst.percent))%")
                         .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
+                        .help("Highest limit: \(worst.label) — \(Int(worst.percent))%")
                 } else {
                     MiniGauge(item: items.first, tint: tint, showTag: showTag)
                 }
@@ -244,6 +245,7 @@ struct IslandRootView: View {
                             Circle()
                                 .fill(dotColor(item))
                                 .frame(width: 5, height: 5)
+                                .help("\(item.label) — \(Int(item.percent))%")
                         }
                     }
                     if let modelItem = items.first(where: { $0.id.hasPrefix("weekly_scoped") }) {

@@ -214,7 +214,7 @@ svg.ring .prog { fill: none; stroke-width: 3; stroke-linecap: round;
 .mchip.on-g { color: #fff; background: rgba(26,168,133,.22); border-color: rgba(26,168,133,.65); }
 .mocknote { padding: 8px 26px 0; font-size: .62rem; color: var(--faint); }
 .mockfooter { display: flex; align-items: center; gap: 6px; padding: 10px 26px 4px; }
-.mockfooter .when { font-size: .64rem; color: var(--faint); margin-right: auto; }
+.mockfooter .when { font-size: .64rem; color: var(--faint); margin-right: auto; white-space: nowrap; }
 .fbtn { font-size: .62rem; font-weight: 600; color: var(--dim); padding: .35em .85em;
   border-radius: 99px; background: rgba(255,255,255,.06); }
 .fsep { width: 1px; height: 11px; background: rgba(255,255,255,.2); }
@@ -325,7 +325,13 @@ a.repo:hover { color: var(--claude); }
     --title-size: clamp(1.6rem, 5vw, 3rem); --h2-size: clamp(1.1rem, 3vw, 1.9rem); }
 }
 @media (max-height: 600px) { .nav-dots, .keyboard-hint, .num { display: none; } }
-@media (max-width: 600px) { .grid3 { grid-template-columns: 1fr; } .stats { gap: 1rem; } }
+@media (max-width: 600px) {
+  .grid3 { grid-template-columns: 1fr; } .stats { gap: 1rem; }
+  /* typing effect needs one line; on narrow screens wrap the commands instead */
+  .type, .visible .type { white-space: pre-wrap; max-width: none; animation: none !important; }
+  .mockfooter .when { font-size: .56rem; }
+  .mockfooter { padding-left: 14px; padding-right: 14px; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important;
     animation-iteration-count: 1 !important; transition-duration: .2s !important; }

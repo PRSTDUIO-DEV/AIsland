@@ -4,6 +4,8 @@ Dynamic Island–style usage meter for AI coding CLIs (Claude / Codex / Gemini),
 pinned to the MacBook notch (falls back to a floating top-center pill on
 screens without a notch).
 
+**[▶ Interactive presentation](https://prstduio-dev.github.io/AIsland/)**
+
 **Providers**
 
 | Provider | Data | Auth |

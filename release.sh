@@ -14,9 +14,9 @@ mkdir -p "$BUILD" "$DIST" "$APP/Contents/MacOS" "$APP/Contents/Resources"
 ./write-plist.sh "$APP/Contents/Info.plist" "$VERSION"
 
 echo "building arm64…"
-swiftc -O -target arm64-apple-macos14 main.swift providers.swift -o "$BUILD/AIsland-arm64"
+swiftc -O -wmo -target arm64-apple-macos14 main.swift providers.swift -o "$BUILD/AIsland-arm64"
 echo "building x86_64…"
-swiftc -O -target x86_64-apple-macos14 main.swift providers.swift -o "$BUILD/AIsland-x86_64"
+swiftc -O -wmo -target x86_64-apple-macos14 main.swift providers.swift -o "$BUILD/AIsland-x86_64"
 lipo -create "$BUILD/AIsland-arm64" "$BUILD/AIsland-x86_64" -o "$APP/Contents/MacOS/AIsland"
 lipo -info "$APP/Contents/MacOS/AIsland"
 

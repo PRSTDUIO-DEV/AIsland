@@ -147,14 +147,17 @@ enum ClaudeFetcher {
     }
 
     private static var cachedPlan: String?
+    // Separate flag: an unrecognized tier caches as nil-but-fetched, so the profile
+    // endpoint is hit once, not every cycle.
+    private static var planFetched = false
     private static var cooldownUntil = Date.distantPast
 
     private static func planName(_ token: String) -> String? {
-        if let cachedPlan { return cachedPlan }
+        if planFetched { return cachedPlan }
         guard let data = httpGET("https://api.anthropic.com/api/oauth/profile", bearer: token),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let org = json["organization"] as? [String: Any]
-        else { return nil }
+        else { return nil } // transient failure — retry next cycle
         let tier = org["rate_limit_tier"] as? String ?? ""
         let plan: String?
         if tier.contains("max_20x") { plan = "Max 20×" }
@@ -162,14 +165,32 @@ enum ClaudeFetcher {
         else if tier.contains("pro") { plan = "Pro" }
         else if tier.contains("free") { plan = "Free" }
         else { plan = nil }
+        planFetched = true
         cachedPlan = plan
         return plan
     }
 
     private enum TokenResult { case token(String), loggedOut, transient }
 
-    // ponytail: shells out to `security` instead of Security.framework — same result, less code
+    // Spawning /usr/bin/security every 60s costs a fork/exec — cache the token and
+    // only re-read after a 401 (Claude Code rotates it rarely).
+    private static var cachedToken: String?
+
+    static func invalidateToken() { cachedToken = nil }
+
     private static func readToken() -> TokenResult {
+        if let cachedToken { return .token(cachedToken) }
+        switch readTokenFromKeychain() {
+        case .token(let t):
+            cachedToken = t
+            return .token(t)
+        case let other:
+            return other
+        }
+    }
+
+    // ponytail: shells out to `security` instead of Security.framework — same result, less code
+    private static func readTokenFromKeychain() -> TokenResult {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         p.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
@@ -227,6 +248,8 @@ enum ClaudeFetcher {
             guard http?.statusCode == 200 else {
                 switch http?.statusCode ?? 0 {
                 case 401:
+                    // Cached token went stale — drop it so next cycle re-reads the Keychain.
+                    invalidateToken()
                     failure = "Token expired — open Claude Code to refresh it"
                 case 429:
                     // Respect the API's Retry-After hint; default to a short 90s otherwise.
@@ -306,6 +329,10 @@ enum CodexFetcher {
         return (token, account)
     }
 
+    // Back off when the wham API rejects us — otherwise an expired token means a
+    // doomed HTTPS request every cycle. Cooled-down cycles use the log fallback.
+    private static var whamCooldownUntil = Date.distantPast
+
     private static func whamRequest(_ path: String, method: String = "GET", body: [String: Any]? = nil) -> Data? {
         guard let auth = chatGPTAuth(),
               let url = URL(string: "https://chatgpt.com/backend-api\(path)") else { return nil }
@@ -321,16 +348,27 @@ enum CodexFetcher {
         req.timeoutInterval = 15
         let sem = DispatchSemaphore(value: 0)
         var out: Data?
+        var status = 0
+        var retryAfter: Double?
         URLSession.shared.dataTask(with: req) { data, resp, _ in
-            if (200...299).contains((resp as? HTTPURLResponse)?.statusCode ?? 0) { out = data }
+            let http = resp as? HTTPURLResponse
+            status = http?.statusCode ?? 0
+            retryAfter = Double(http?.value(forHTTPHeaderField: "Retry-After") ?? "")
+            if (200...299).contains(status) { out = data }
             sem.signal()
         }.resume()
         sem.wait()
+        switch status {
+        case 429: whamCooldownUntil = Date().addingTimeInterval(min(max(retryAfter ?? 90, 60), 600))
+        case 401: whamCooldownUntil = Date().addingTimeInterval(300)
+        default: break
+        }
         return out
     }
 
     // Same endpoint Codex CLI itself uses — live percentages plus reset credits.
     private static func liveFetch() -> ProviderState? {
+        guard Date() >= whamCooldownUntil else { return nil }
         guard let data = whamRequest("/wham/usage"),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let rl = json["rate_limit"] as? [String: Any]
@@ -505,6 +543,8 @@ final class UsageModel: ObservableObject {
     private var timer: Timer?
     private var lastFetch = Date.distantPast
     private var isRefreshing = false
+    // No polling while the display sleeps or the screen is locked — nobody can see the pill.
+    private var displayDark = false
     private var hoverWork: DispatchWorkItem?
 
     @Published var resetArmed = false
@@ -572,9 +612,26 @@ final class UsageModel: ObservableObject {
         let t = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
             self?.refresh()
         }
-        t.tolerance = 5
+        t.tolerance = 15 // generous coalescing window — exact cadence doesn't matter
         RunLoop.main.add(t, forMode: .common)
         timer = t
+
+        let wsc = NSWorkspace.shared.notificationCenter
+        wsc.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.displayDark = true
+        }
+        wsc.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.displayDark = false
+            self?.refreshIfStale()
+        }
+        let dnc = DistributedNotificationCenter.default()
+        dnc.addObserver(forName: NSNotification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
+            self?.displayDark = true
+        }
+        dnc.addObserver(forName: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
+            self?.displayDark = false
+            self?.refreshIfStale()
+        }
 
         // First run: open the card once with a hint so the pill isn't a mystery.
         if onboarding {
@@ -595,7 +652,7 @@ final class UsageModel: ObservableObject {
     }
 
     func refresh() {
-        guard !isRefreshing else { return }
+        guard !isRefreshing, !displayDark else { return }
         isRefreshing = true
         lastFetch = Date()
         DispatchQueue.global(qos: .utility).async {

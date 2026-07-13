@@ -9,7 +9,7 @@ mkdir -p "$APP/Contents/MacOS"
 
 ./write-plist.sh "$APP/Contents/Info.plist" "$VERSION"
 
-swiftc -O main.swift providers.swift -o "$APP/Contents/MacOS/AIsland"
+swiftc -O -wmo main.swift providers.swift -o "$APP/Contents/MacOS/AIsland"
 if [ -f AppIcon.icns ]; then
   mkdir -p "$APP/Contents/Resources"
   cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"

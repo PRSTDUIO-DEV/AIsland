@@ -432,9 +432,14 @@ final class IslandController: NSObject, NSMenuDelegate {
     private static let wing: CGFloat = 104
     private static let maxHeight: CGFloat = 420
 
-    // Wider wings only for the full style with a third gauge (per-model limit).
+    // Wider wings when a third gauge (per-model limit) with its name tag is showing.
     private var wingWidth: CGFloat {
-        model.pillStyle == .full && model.collapsedItems(model.current).count > 2 ? 150 : Self.wing
+        guard model.collapsedItems(model.current).count > 2 else { return Self.wing }
+        switch model.pillStyle {
+        case .full: return 150
+        case .compact: return 140
+        case .dots: return Self.wing
+        }
     }
 
     override init() {

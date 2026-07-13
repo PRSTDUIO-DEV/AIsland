@@ -297,7 +297,7 @@ enum ClaudeFetcher {
             return st
         }
         st.items = limits.map { l in
-            let scopeName = l.scope?.model?.display_name
+            let scopeName = l.scope?.model?.display_name // shown exactly as the API names it
             let label: String
             switch l.kind {
             case "session": label = "Session (5h)"

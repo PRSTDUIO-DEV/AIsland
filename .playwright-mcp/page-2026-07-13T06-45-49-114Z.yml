@@ -1,0 +1,232 @@
+- generic [active] [ref=e1]:
+  - navigation "Slides" [ref=e3]:
+    - button "Slide 1" [ref=e4] [cursor=pointer]
+    - button "Slide 2" [ref=e5] [cursor=pointer]
+    - button "Slide 3" [ref=e6] [cursor=pointer]
+    - button "Slide 4" [ref=e7] [cursor=pointer]
+    - button "Slide 5" [ref=e8] [cursor=pointer]
+    - button "Slide 6" [ref=e9] [cursor=pointer]
+    - button "Slide 7" [ref=e10] [cursor=pointer]
+    - button "Slide 8" [ref=e11] [cursor=pointer]
+    - button "Slide 9" [ref=e12] [cursor=pointer]
+  - generic [ref=e13]: ← → · scroll · swipe
+  - main [ref=e14]:
+    - region "Title" [ref=e15]:
+      - generic [ref=e16]:
+        - paragraph [ref=e17]: macOS · open source · zero dependencies
+        - 'img "MacBook mockup: AIsland hugs the notch; a cursor hovers it and the usage card expands" [ref=e18]':
+          - generic [ref=e20]:
+            - generic [ref=e29]:
+              - generic [ref=e30]:
+                - generic [ref=e34]: 5h
+                - text: 31%
+              - generic [ref=e35]:
+                - generic [ref=e39]: 7d
+                - text: 58%
+            - generic [ref=e41]:
+              - generic [ref=e42]:
+                - generic [ref=e43]: ✳ Claude
+                - generic [ref=e44]: ⬡ GPT
+                - generic [ref=e45]: ✦ Gemini
+              - generic [ref=e46]:
+                - generic [ref=e47]: Session (5h)
+                - generic [ref=e48]: resets 3h 15m
+                - generic [ref=e49]: 31%
+              - generic [ref=e52]:
+                - generic [ref=e53]: Weekly · all models
+                - generic [ref=e54]: resets 4d 17h
+                - generic [ref=e55]: 58%
+              - generic [ref=e58]:
+                - generic [ref=e59]: Weekly · Fable
+                - generic [ref=e60]: resets 4d 17h
+                - generic [ref=e61]: 27%
+              - generic [ref=e64]:
+                - generic [ref=e65]: synced just now
+                - generic [ref=e66]: startup ✓
+                - generic [ref=e67]: refresh
+                - generic [ref=e68]: quit
+        - heading "AIsland" [level=1] [ref=e79]:
+          - generic [ref=e80]: A
+          - generic [ref=e81]: I
+          - generic [ref=e82]: s
+          - generic [ref=e83]: l
+          - generic [ref=e84]: a
+          - generic [ref=e85]: "n"
+          - generic [ref=e86]: d
+        - paragraph [ref=e87]: Claude, GPT & Gemini usage limits — floating on your Mac's island.
+    - region "The problem" [ref=e88]:
+      - generic [ref=e89]:
+        - generic [ref=e90]: "01"
+        - heading "Three CLIs. Three quotas. Zero visibility." [level=2] [ref=e91]: Three CLIs. Three quotas.Zero visibility.
+        - list [ref=e92]:
+          - listitem [ref=e93]:
+            - text: — Claude Code hides your limits behind
+            - code [ref=e94]: /usage
+          - listitem [ref=e95]:
+            - text: — Codex tells you in
+            - code [ref=e96]: /status
+            - text: — after you've already opened a session
+          - listitem [ref=e97]: — Gemini? Good luck.
+          - listitem [ref=e98]:
+            - text: "— So you discover the wall the hard way:"
+            - generic [ref=e99]: "\"rate limit reached.\""
+        - paragraph [ref=e100]: Quota anxiety is real.
+    - region "The fix" [ref=e101]:
+      - generic [ref=e102]:
+        - generic [ref=e103]: "02"
+        - heading "Just glance up." [level=2] [ref=e104]
+        - 'img "AIsland demo: a cursor hovers the pill, the card expands, and a provider chip is clicked" [ref=e105]':
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - generic [ref=e120]: 5h
+                - text: 31%
+              - generic [ref=e121]:
+                - generic [ref=e125]: 7d
+                - text: 58%
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e128]: ✳ Claude
+                - generic [ref=e130]: ⬡ GPT
+                - generic [ref=e132]: ✦ Gemini
+              - generic [ref=e135]:
+                - generic [ref=e136]: Session (5h)
+                - generic [ref=e137]: resets 3h 15m
+                - generic [ref=e138]: 31%
+              - generic [ref=e141]:
+                - generic [ref=e142]: Weekly · all models
+                - generic [ref=e143]: resets 4d 17h
+                - generic [ref=e144]: 58%
+              - generic [ref=e147]:
+                - generic [ref=e148]: Weekly · Fable
+                - generic [ref=e149]: resets 4d 17h
+                - generic [ref=e150]: 27%
+              - generic [ref=e152]: Max 20× plan
+              - generic [ref=e153]:
+                - generic [ref=e154]: synced just now
+                - generic [ref=e155]: startup ✓
+                - generic [ref=e156]: refresh
+                - generic [ref=e158]: quit
+        - paragraph [ref=e159]: A quiet pill at the top of your screen. Hover — live bars, ticking reset countdowns, your plan. Click a provider chip to pin it.
+    - region "Providers" [ref=e160]:
+      - generic [ref=e161]:
+        - generic [ref=e162]: "03"
+        - heading "One island, three providers." [level=2] [ref=e163]
+        - generic [ref=e164]:
+          - generic [ref=e165]:
+            - generic [ref=e166]: ✳
+            - heading "Claude" [level=3] [ref=e167]
+            - paragraph [ref=e169]: Live from the OAuth usage API — 5-hour session, weekly, per-model limits and your plan. Auto-auth from the Claude Code Keychain.
+            - generic [ref=e170]: live api
+          - generic [ref=e171]:
+            - generic [ref=e172]: ⬡
+            - heading "GPT · Codex" [level=3] [ref=e173]
+            - paragraph [ref=e175]: Live from the same API the Codex CLI uses — plan, reset times, and a manual limit-reset button when OpenAI grants you credits.
+            - generic [ref=e176]: live api + reset
+          - generic [ref=e177]:
+            - generic [ref=e178]: ✦
+            - heading "Gemini" [level=3] [ref=e179]
+            - paragraph [ref=e181]: Auth status at a glance and one-click Terminal login. The moment Google ships a usage API, it lights up here.
+            - generic [ref=e182]: auth + connect
+    - region "Manual reset" [ref=e183]:
+      - generic [ref=e184]:
+        - generic [ref=e185]: "04"
+        - heading "Hit the wall? Reset it." [level=2] [ref=e186]
+        - img "AIsland GPT card with the reset limit button showing three credits left" [ref=e187]:
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - generic [ref=e198]:
+                - generic [ref=e202]: 7d
+                - text: 22%
+              - generic [ref=e203]: linked
+            - generic [ref=e206]:
+              - generic [ref=e207]: ✳ Claude
+              - generic [ref=e209]: ⬡ GPT
+              - generic [ref=e211]: ✦ Gemini
+            - generic [ref=e214]:
+              - generic [ref=e215]: Weekly
+              - generic [ref=e216]: resets 6d 18h
+              - generic [ref=e217]: 22%
+            - generic [ref=e219]: Reset limit now · 3 credits left
+            - generic [ref=e220]: plus plan · live · 3 reset credits
+            - generic [ref=e221]:
+              - generic [ref=e222]: synced just now
+              - generic [ref=e223]: startup ✓
+              - generic [ref=e224]: refresh
+              - generic [ref=e226]: quit
+        - paragraph [ref=e228]: OpenAI grants Codex users free rate-limit reset credits — AIsland surfaces them as a one-click button. Two taps to confirm, limit gone.
+    - region "Resilience" [ref=e229]:
+      - generic [ref=e230]:
+        - generic [ref=e231]: "05"
+        - heading "Built to run all day." [level=2] [ref=e232]
+        - list [ref=e233]:
+          - listitem [ref=e234]:
+            - text: — Refreshes every
+            - generic [ref=e235]: 60s
+            - text: ", on hover, after wake — and the instant a rate-limit backoff expires"
+          - listitem [ref=e236]:
+            - text: — API rate-limited? Live countdown,
+            - generic [ref=e237]: keeps your last good data
+            - text: on screen
+          - listitem [ref=e238]:
+            - text: —
+            - generic [ref=e239]: Menu-bar gauge
+            - text: mirrors everything — keyboard & VoiceOver friendly
+          - listitem [ref=e240]:
+            - text: — Clicks fall
+            - generic [ref=e241]: through
+            - text: the empty space — it never steals your mouse
+          - listitem [ref=e242]:
+            - text: — One tap on
+            - code [ref=e243]: startup
+            - text: and it's there every login
+    - region "Install" [ref=e244]:
+      - generic [ref=e245]:
+        - generic [ref=e246]: "06"
+        - heading "Install in ten seconds." [level=2] [ref=e247]
+        - generic [ref=e248]:
+          - generic [ref=e249]:
+            - text: $
+            - generic: brew install --cask PRSTDUIO-DEV/tap/aisland
+          - generic [ref=e250]:
+            - text: $
+            - generic: xattr -dr com.apple.quarantine /Applications/AIsland.app
+          - generic [ref=e251]: "# or grab the DMG from GitHub Releases"
+        - paragraph [ref=e252]: Universal binary — Apple Silicon & Intel · macOS 14+ · MIT licensed
+    - region "Under the hood" [ref=e253]:
+      - generic [ref=e254]:
+        - generic [ref=e255]: "07"
+        - heading "Almost nothing under the hood." [level=2] [ref=e256]
+        - generic [ref=e257]:
+          - generic [ref=e258]:
+            - generic [ref=e259]: "0"
+            - text: swift files
+          - generic [ref=e260]:
+            - generic [ref=e261]: "0"
+            - text: lines
+          - generic [ref=e262]:
+            - generic [ref=e263]: "0"
+            - text: dependencies
+          - generic [ref=e264]:
+            - generic [ref=e265]: "0"
+            - text: live APIs tapped
+        - list [ref=e266]:
+          - listitem [ref=e267]:
+            - text: — SwiftUI inside a borderless
+            - code [ref=e268]: NSPanel
+            - text: pinned above the menu bar
+          - listitem [ref=e269]:
+            - text: — Fixed-size window +
+            - code [ref=e270]: hitTest
+            - text: passthrough — that's why hover feels like butter
+          - listitem [ref=e271]:
+            - text: — Compiled with bare
+            - code [ref=e272]: swiftc
+            - text: . No Xcode project. No build system. Icon drawn in CoreGraphics.
+    - region "Get it" [ref=e273]:
+      - generic [ref=e274]:
+        - img "AIsland app icon — glowing rings on a pill floating over dark water" [ref=e275]
+        - heading "Know your limits. 🏝️" [level=2] [ref=e276]
+        - link "github.com/PRSTDUIO-DEV/AIsland" [ref=e277] [cursor=pointer]:
+          - /url: https://github.com/PRSTDUIO-DEV/AIsland
+        - paragraph [ref=e278]: Open source · built with Claude Code · icon & reset API hunted down with Codex

@@ -281,7 +281,7 @@ struct IslandRootView: View {
             }
 
             if let note = state.note, !state.items.isEmpty {
-                Text(note)
+                Text(note + retryText(state.retryAt))
                     .font(.system(size: 9, design: .rounded))
                     .foregroundStyle(.white.opacity(0.35))
             }
@@ -296,7 +296,7 @@ struct IslandRootView: View {
 
     private func statusBlock(_ state: ProviderState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(state.note ?? (state.connected ? "Connected" : "Not connected"))
+            Text((state.note ?? (state.connected ? "Connected" : "Not connected")) + retryText(state.retryAt))
                 .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(.white.opacity(0.65))
             if !state.connected {

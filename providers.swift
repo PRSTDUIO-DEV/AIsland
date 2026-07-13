@@ -53,6 +53,7 @@ struct ProviderState {
     var items: [UsageItem] = []
     var connected = false
     var note: String?
+    var retryAt: Date?
     var updatedAt: Date?
 }
 
@@ -88,6 +89,13 @@ func agoText(_ d: Date?) -> String {
     if s < 3600 { return "synced \(s / 60)m ago" }
     if s < 86400 { return "synced \(s / 3600)h \((s % 3600) / 60)m ago" }
     return "synced \(s / 86400)d ago"
+}
+
+func retryText(_ d: Date?) -> String {
+    guard let d else { return "" }
+    let s = Int(d.timeIntervalSinceNow)
+    if s <= 0 { return " · retrying…" }
+    return " · retry in \(s)s"
 }
 
 func tokenText(_ n: Double) -> String {
@@ -197,7 +205,8 @@ enum ClaudeFetcher {
         }
         st.connected = true
         guard Date() >= cooldownUntil else {
-            st.note = "Rate limited — retrying soon"
+            st.note = "Rate limited"
+            st.retryAt = cooldownUntil
             return st
         }
 
@@ -222,7 +231,7 @@ enum ClaudeFetcher {
                     // Respect the API's Retry-After hint; default to a short 90s otherwise.
                     let hinted = Double(http?.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 90
                     backoff = min(max(hinted, 60), 600)
-                    failure = "Rate limited — retrying in \(Int(backoff))s"
+                    failure = "Rate limited"
                 case let code:
                     failure = "HTTP \(code)"
                 }
@@ -232,7 +241,10 @@ enum ClaudeFetcher {
         }.resume()
         sem.wait()
 
-        if backoff > 0 { cooldownUntil = Date().addingTimeInterval(backoff) }
+        if backoff > 0 {
+            cooldownUntil = Date().addingTimeInterval(backoff)
+            st.retryAt = cooldownUntil
+        }
         guard let data = fetched else {
             NSLog("AIsland claude: no data — %@", failure)
             st.note = failure
@@ -245,7 +257,8 @@ enum ClaudeFetcher {
             NSLog("AIsland claude: empty/undecodable body: %@",
                   String(decoding: data.prefix(160), as: UTF8.self))
             cooldownUntil = Date().addingTimeInterval(90)
-            st.note = "API busy — retrying soon"
+            st.note = "API busy"
+            st.retryAt = cooldownUntil
             return st
         }
         st.items = limits.map { l in
@@ -492,12 +505,23 @@ final class UsageModel: ObservableObject {
                        let old = self.states[p], !old.items.isEmpty {
                         var keep = old
                         keep.note = fresh.note ?? old.note
+                        keep.retryAt = fresh.retryAt
                         merged[p] = keep
                     } else {
                         merged[p] = fresh
                     }
                 }
                 self.states = merged
+                // Fire a refresh right when the earliest backoff expires instead of
+                // waiting out the rest of the 60s poll cycle.
+                if let soonest = merged.values.compactMap(\.retryAt).min(),
+                   soonest > Date() {
+                    DispatchQueue.main.asyncAfter(
+                        deadline: .now() + soonest.timeIntervalSinceNow + 1
+                    ) { [weak self] in
+                        self?.refreshIfStale()
+                    }
+                }
             }
         }
     }

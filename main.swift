@@ -280,6 +280,25 @@ struct IslandRootView: View {
                 }
             }
 
+            if model.selected == .gpt, state.resetCredits > 0 {
+                Button {
+                    model.resetCodexLimit()
+                } label: {
+                    Text(model.resetArmed
+                        ? "Tap again to confirm — uses 1 credit"
+                        : "Reset limit now · \(state.resetCredits) credit\(state.resetCredits == 1 ? "" : "s") left")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(
+                            model.resetArmed ? Color.orange.opacity(0.85) : Provider.gpt.tint.opacity(0.7)
+                        ))
+                }
+                .buttonStyle(PressableStyle())
+                .onHover { $0 ? NSCursor.pointingHand.push() : NSCursor.pop() }
+            }
+
             if let note = state.note, !state.items.isEmpty {
                 Text(note + retryText(state.retryAt))
                     .font(.system(size: 9, design: .rounded))
@@ -326,10 +345,8 @@ struct IslandRootView: View {
             Text(agoText(state.updatedAt))
                 .font(.system(size: 10, design: .rounded))
                 .foregroundStyle(age > Self.staleAfter ? Color.orange : Color.white.opacity(0.35))
-            Text("auto 60s")
-                .font(.system(size: 9, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.25))
-            Spacer()
+                .lineLimit(1)
+            Spacer(minLength: 6)
             footerButton(model.launchAtLogin ? "startup ✓" : "startup") {
                 model.toggleLaunchAtLogin()
             }
@@ -468,9 +485,10 @@ final class IslandController: NSObject, NSMenuDelegate {
     private func expandedHeight() -> CGFloat {
         let state = model.current
         let onboardExtra: CGFloat = model.onboarding ? 24 : 0
+        let resetExtra: CGFloat = (model.selected == .gpt && state.resetCredits > 0) ? 32 : 0
         guard !state.items.isEmpty else { return barH + 200 + onboardExtra }
         let noteExtra: CGFloat = state.note != nil ? 18 : 0
-        return barH + 152 + CGFloat(state.items.count) * 36 + noteExtra + onboardExtra
+        return barH + 152 + CGFloat(state.items.count) * 36 + noteExtra + onboardExtra + resetExtra
     }
 
     // MARK: Status-bar menu

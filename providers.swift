@@ -55,6 +55,7 @@ struct ProviderState {
     var note: String?
     var retryAt: Date?
     var updatedAt: Date?
+    var resetCredits = 0
 }
 
 // MARK: - Helpers
@@ -291,9 +292,87 @@ enum ClaudeFetcher {
     }
 }
 
-// MARK: - GPT / Codex (rate limits from newest session log)
+// MARK: - GPT / Codex (live wham API, session-log fallback)
 
 enum CodexFetcher {
+    private static func chatGPTAuth() -> (token: String, account: String)? {
+        let url = home().appendingPathComponent(".codex/auth.json")
+        guard let data = try? Data(contentsOf: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tokens = json["tokens"] as? [String: Any],
+              let token = tokens["access_token"] as? String,
+              let account = tokens["account_id"] as? String
+        else { return nil }
+        return (token, account)
+    }
+
+    private static func whamRequest(_ path: String, method: String = "GET", body: [String: Any]? = nil) -> Data? {
+        guard let auth = chatGPTAuth(),
+              let url = URL(string: "https://chatgpt.com/backend-api\(path)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.setValue("Bearer \(auth.token)", forHTTPHeaderField: "Authorization")
+        req.setValue(auth.account, forHTTPHeaderField: "ChatGPT-Account-Id")
+        req.setValue("codex-cli", forHTTPHeaderField: "User-Agent")
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+        req.timeoutInterval = 15
+        let sem = DispatchSemaphore(value: 0)
+        var out: Data?
+        URLSession.shared.dataTask(with: req) { data, resp, _ in
+            if (200...299).contains((resp as? HTTPURLResponse)?.statusCode ?? 0) { out = data }
+            sem.signal()
+        }.resume()
+        sem.wait()
+        return out
+    }
+
+    // Same endpoint Codex CLI itself uses — live percentages plus reset credits.
+    private static func liveFetch() -> ProviderState? {
+        guard let data = whamRequest("/wham/usage"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let rl = json["rate_limit"] as? [String: Any]
+        else { return nil }
+        var st = ProviderState()
+        st.connected = true
+        let exceeded = rl["limit_reached"] as? Bool == true
+        for (key, name) in [("primary_window", "primary"), ("secondary_window", "secondary")] {
+            guard let w = rl[key] as? [String: Any],
+                  let used = w["used_percent"] as? Double else { continue }
+            let minutes = (w["limit_window_seconds"] as? Double ?? 0) / 60
+            let resets = (w["reset_at"] as? Double).map { Date(timeIntervalSince1970: $0) }
+            st.items.append(UsageItem(
+                id: "codex-\(name)",
+                label: windowLabel(minutes),
+                short: shortLabel(minutes),
+                percent: used,
+                severity: exceeded ? "exceeded" : "normal",
+                resetsAt: resets
+            ))
+        }
+        guard !st.items.isEmpty else { return nil }
+        if let credits = json["rate_limit_reset_credits"] as? [String: Any],
+           let n = credits["available_count"] as? Int {
+            st.resetCredits = n
+        }
+        var bits: [String] = []
+        if let plan = json["plan_type"] as? String { bits.append("\(plan) plan · live") }
+        if st.resetCredits > 0 { bits.append("\(st.resetCredits) reset credits") }
+        st.note = bits.isEmpty ? nil : bits.joined(separator: " · ")
+        st.updatedAt = Date()
+        return st
+    }
+
+    static func consumeResetCredit() -> Bool {
+        whamRequest(
+            "/wham/rate-limit-reset-credits/consume",
+            method: "POST",
+            body: ["redeem_request_id": UUID().uuidString]
+        ) != nil
+    }
+
     static func fetch() -> ProviderState {
         var st = ProviderState()
         let fm = FileManager.default
@@ -302,6 +381,8 @@ enum CodexFetcher {
             st.note = "Login via browser"
             return st
         }
+        if let live = liveFetch() { return live }
+        // Token expired or offline — fall back to the newest session log.
         guard let file = newestSession() else {
             st.note = "No Codex sessions yet — run codex once"
             return st
@@ -426,6 +507,33 @@ final class UsageModel: ObservableObject {
     private var isRefreshing = false
     private var hoverWork: DispatchWorkItem?
 
+    @Published var resetArmed = false
+    private var disarmWork: DispatchWorkItem?
+
+    /// Two-tap confirm — consuming a reset credit is a real account action.
+    func resetCodexLimit() {
+        if !resetArmed {
+            resetArmed = true
+            disarmWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.resetArmed = false }
+            disarmWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
+            return
+        }
+        disarmWork?.cancel()
+        resetArmed = false
+        states[.gpt, default: ProviderState()].note = "Resetting limit…"
+        DispatchQueue.global(qos: .userInitiated).async {
+            let ok = CodexFetcher.consumeResetCredit()
+            DispatchQueue.main.async {
+                self.states[.gpt, default: ProviderState()].note = ok
+                    ? "Limit reset ✓"
+                    : "Reset failed — try again or use the Codex CLI"
+                if ok { self.refresh() }
+            }
+        }
+    }
+
     func endOnboarding() {
         guard onboarding else { return }
         onboarding = false
@@ -519,7 +627,9 @@ final class UsageModel: ObservableObject {
                     DispatchQueue.main.asyncAfter(
                         deadline: .now() + soonest.timeIntervalSinceNow + 1
                     ) { [weak self] in
-                        self?.refreshIfStale()
+                        // Full refresh, not refreshIfStale — the 30s staleness throttle
+                        // would swallow this exact-moment retry and leave "retrying…" stuck.
+                        self?.refresh()
                     }
                 }
             }

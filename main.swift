@@ -246,10 +246,18 @@ struct IslandRootView: View {
                                 .frame(width: 5, height: 5)
                         }
                     }
+                    if let modelItem = items.first(where: { $0.id.hasPrefix("weekly_scoped") }) {
+                        Text(modelItem.short)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
                 } else if items.count > 1 {
                     MiniGauge(item: items[1], tint: tint, showTag: showTag)
                     if items.count > 2 {
-                        MiniGauge(item: items[2], tint: tint, showTag: showTag)
+                        // The model gauge keeps its name tag in every style —
+                        // position alone can't tell you which model it is.
+                        MiniGauge(item: items[2], tint: tint,
+                                  showTag: showTag || items[2].id.hasPrefix("weekly_scoped"))
                     }
                 } else {
                     Circle()
@@ -266,7 +274,7 @@ struct IslandRootView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("AIsland, \(model.selected.name) usage")
         .accessibilityValue(
-            model.current.items.prefix(3)
+            items
                 .map { "\($0.label) \(Int($0.percent)) percent" }
                 .joined(separator: ", ")
         )

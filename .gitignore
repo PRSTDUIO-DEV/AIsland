@@ -4,3 +4,8 @@ dist/
 *.dmg
 .DS_Store
 icon/AppIcon.iconset/
+.playwright-mcp/
+.serena/
+pill-*.png
+*.png
+!docs/*.png

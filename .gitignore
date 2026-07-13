@@ -1,0 +1,6 @@
+AIsland.app/
+.build/
+dist/
+*.dmg
+.DS_Store
+icon/AppIcon.iconset/

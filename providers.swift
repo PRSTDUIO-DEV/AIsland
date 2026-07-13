@@ -529,19 +529,59 @@ enum CodexFetcher {
     }
 }
 
-// MARK: - Gemini (auth status only — no public usage API)
+// MARK: - Gemini (no public usage API — estimate from the CLI's own logs)
 
 enum GeminiFetcher {
+    private static let freeTierDaily = 1000.0
+
     static func fetch() -> ProviderState {
         var st = ProviderState()
         st.connected = FileManager.default.fileExists(
             atPath: home().appendingPathComponent(".gemini/oauth_creds.json").path
         )
-        st.note = st.connected
-            ? "Connected — Gemini exposes no usage API yet"
-            : "Login via browser"
-        if st.connected { st.updatedAt = Date() }
+        guard st.connected else {
+            st.note = "Login via browser"
+            return st
+        }
+
+        // Google's quota resets at midnight Pacific.
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/Los_Angeles") ?? .current
+        let dayStart = cal.startOfDay(for: Date())
+        let count = requestCount(since: dayStart)
+
+        st.items = [UsageItem(
+            id: "gemini-day",
+            label: "Requests today",
+            short: "day",
+            percent: min(100, Double(count) / freeTierDaily * 100),
+            severity: "normal",
+            resetsAt: cal.date(byAdding: .day, value: 1, to: dayStart)
+        )]
+        st.note = "\(count) of ~1,000 free-tier requests · local estimate"
+        st.updatedAt = Date()
         return st
+    }
+
+    // Every prompt the Gemini CLI sends is logged in ~/.gemini/tmp/*/logs.json.
+    private static func requestCount(since: Date) -> Int {
+        let base = home().appendingPathComponent(".gemini/tmp")
+        guard let dirs = try? FileManager.default.contentsOfDirectory(
+            at: base, includingPropertiesForKeys: nil
+        ) else { return 0 }
+        var count = 0
+        for dir in dirs {
+            let log = dir.appendingPathComponent("logs.json")
+            guard let data = try? Data(contentsOf: log),
+                  let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+            else { continue }
+            for entry in entries where entry["type"] as? String == "user" {
+                if let ts = parseISO(entry["timestamp"] as? String), ts >= since {
+                    count += 1
+                }
+            }
+        }
+        return count
     }
 }
 

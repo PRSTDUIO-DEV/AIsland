@@ -30,7 +30,7 @@ screens without a notch).
 |----------|------|------|
 | Claude | Session 5h / Weekly / per-model limits, live from the OAuth usage API | auto from Claude Code's Keychain entry |
 | Codex | Live rate-limit windows from the same API the Codex CLI uses (session-log fallback) + manual reset-credit button | auto from `~/.codex/auth.json`; "Connect" runs `codex login` |
-| Gemini | auth status only (no public usage API) | auto from `~/.gemini/oauth_creds.json`; "Connect" runs the Gemini CLI login |
+| Gemini | Daily request meter estimated from the CLI's local logs (free tier ~1,000/day, resets midnight PT) | auto from `~/.gemini/oauth_creds.json`; "Connect" runs the Gemini CLI login |
 
 **Install**
 

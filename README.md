@@ -1,10 +1,28 @@
 # AIsland
 
+<p align="center">
+  <img src="docs/og.png" alt="AIsland — Claude, Codex and Gemini usage limits, live on your Mac's island" width="760">
+</p>
+
+<p align="center">
+  <a href="https://github.com/PRSTDUIO-DEV/AIsland/releases"><img src="https://img.shields.io/github/v/release/PRSTDUIO-DEV/AIsland?color=d97757&label=release" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-1aa885" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/dependencies-0-5a8cff" alt="Zero dependencies">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT license"></a>
+</p>
+
 Dynamic Island–style usage meter for AI coding CLIs (Claude / Codex / Gemini),
 pinned to the MacBook notch (falls back to a floating top-center pill on
 screens without a notch).
 
 **[▶ Interactive presentation](https://prstduio-dev.github.io/AIsland/)**
+
+## Screenshots
+
+| Hover the island | Reset Codex limits |
+|:---:|:---:|
+| <img src="docs/shot-macbook.png" alt="Expanded card under the notch: provider chips, three Claude usage bars with reset countdowns" width="420"> | <img src="docs/shot-reset.png" alt="Codex card with the Reset limit now button — three credits left" width="400"> |
+| Live bars, ticking reset countdowns, your plan | One-click use of OpenAI's granted reset credits |
 
 **Providers**
 

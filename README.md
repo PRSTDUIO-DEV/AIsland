@@ -16,7 +16,8 @@ screens without a notch).
 
 ```bash
 # Homebrew
-brew install --cask PRSTDUIO-DEV/tap/aisland --no-quarantine
+brew install --cask PRSTDUIO-DEV/tap/aisland
+xattr -dr com.apple.quarantine /Applications/AIsland.app
 
 # or download the DMG from Releases and drag AIsland.app to Applications
 ```

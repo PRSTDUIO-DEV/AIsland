@@ -1,352 +1,198 @@
 #!/usr/bin/env swift
+// AIsland icon — "island at night": glossy pill floating over dark water,
+// three provider rings glowing, light columns reflecting on the sea below.
+// Run: swift icon/make_icon.swift   (writes icon/AppIcon.iconset/*.png)
 import AppKit
-import CoreGraphics
-import Foundation
 
-private let canvasPixels = 1024
-private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+let S: CGFloat = 1024
+let squircle = CGRect(x: 100, y: 100, width: 824, height: 824)
+let corner: CGFloat = 185
 
-private enum IconBuildError: Error, CustomStringConvertible {
-    case contextCreationFailed(Int, Int)
-    case imageCreationFailed
-    case pngEncodingFailed(String)
+let terracotta = CGColor(red: 0.85, green: 0.47, blue: 0.34, alpha: 1)
+let teal = CGColor(red: 0.10, green: 0.66, blue: 0.52, alpha: 1)
+let azure = CGColor(red: 0.35, green: 0.55, blue: 1.00, alpha: 1)
 
-    var description: String {
-        switch self {
-        case .contextCreationFailed(let width, let height):
-            return "Could not create bitmap context \(width)x\(height)."
-        case .imageCreationFailed:
-            return "Could not create CGImage from bitmap context."
-        case .pngEncodingFailed(let name):
-            return "Could not encode PNG for \(name)."
-        }
-    }
+var seed: UInt64 = 42
+func rnd() -> CGFloat {
+    seed = seed &* 6364136223846793005 &+ 1442695040888963407
+    return CGFloat((seed >> 33) % 10000) / 10000
 }
 
-private extension CGFloat {
-    var degreesToRadians: CGFloat { self * .pi / 180.0 }
+func gradient(_ stops: [(CGFloat, CGColor)]) -> CGGradient {
+    CGGradient(
+        colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+        colors: stops.map(\.1) as CFArray,
+        locations: stops.map(\.0)
+    )!
 }
 
-private func color(_ hex: UInt32, alpha: CGFloat = 1.0) -> CGColor {
-    let red = CGFloat((hex >> 16) & 0xff) / 255.0
-    let green = CGFloat((hex >> 8) & 0xff) / 255.0
-    let blue = CGFloat(hex & 0xff) / 255.0
-    return CGColor(colorSpace: colorSpace, components: [red, green, blue, alpha])!
+func rgba(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat) -> CGColor {
+    CGColor(red: r, green: g, blue: b, alpha: a)
 }
 
-private func alpha(_ base: CGColor, _ value: CGFloat) -> CGColor {
-    return base.copy(alpha: value)!
-}
+func with(_ c: CGColor, alpha: CGFloat) -> CGColor { c.copy(alpha: alpha)! }
 
-private func makeContext(width: Int, height: Int) throws -> CGContext {
-    let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
-    guard let context = CGContext(
-        data: nil,
-        width: width,
-        height: height,
-        bitsPerComponent: 8,
-        bytesPerRow: width * 4,
-        space: colorSpace,
-        bitmapInfo: bitmapInfo
-    ) else {
-        throw IconBuildError.contextCreationFailed(width, height)
-    }
+func draw(into ctx: CGContext) {
+    let path = CGPath(roundedRect: squircle, cornerWidth: corner, cornerHeight: corner, transform: nil)
+    ctx.addPath(path)
+    ctx.clip()
 
-    context.interpolationQuality = .high
-    context.setAllowsAntialiasing(true)
-    context.setShouldAntialias(true)
-    return context
-}
-
-private func gradient(_ stops: [(CGColor, CGFloat)]) -> CGGradient {
-    let colors = stops.map { $0.0 } as CFArray
-    let locations = stops.map { $0.1 }
-    return CGGradient(colorsSpace: colorSpace, colors: colors, locations: locations)!
-}
-
-private func drawRing(
-    in context: CGContext,
-    center: CGPoint,
-    radius: CGFloat,
-    lineWidth: CGFloat,
-    progress: CGFloat,
-    startAngle: CGFloat,
-    tint: CGColor
-) {
-    context.saveGState()
-    context.setLineCap(.round)
-    context.setLineJoin(.round)
-    context.setLineWidth(lineWidth)
-    context.setStrokeColor(color(0xffffff, alpha: 0.15))
-    context.addArc(
-        center: center,
-        radius: radius,
-        startAngle: 0,
-        endAngle: 2.0 * .pi,
-        clockwise: false
+    // Night sky: lighter charcoal at the top edge falling to near-black below.
+    ctx.drawLinearGradient(
+        gradient([(0, rgba(0.014, 0.015, 0.024, 1)), (0.6, rgba(0.035, 0.038, 0.058, 1)), (1, rgba(0.105, 0.110, 0.145, 1))]),
+        start: CGPoint(x: 512, y: 100), end: CGPoint(x: 512, y: 924), options: []
     )
-    context.strokePath()
 
-    let start = startAngle.degreesToRadians
-    let end = start + min(max(progress, 0), 1) * 2.0 * .pi
+    // Aurora washes hugging the pill.
+    ctx.drawRadialGradient(
+        gradient([(0, with(terracotta, alpha: 0.13)), (1, with(terracotta, alpha: 0))]),
+        startCenter: CGPoint(x: 340, y: 560), startRadius: 0,
+        endCenter: CGPoint(x: 340, y: 560), endRadius: 340, options: []
+    )
+    ctx.drawRadialGradient(
+        gradient([(0, with(teal, alpha: 0.15)), (1, with(teal, alpha: 0))]),
+        startCenter: CGPoint(x: 512, y: 600), startRadius: 0,
+        endCenter: CGPoint(x: 512, y: 600), endRadius: 350, options: []
+    )
+    ctx.drawRadialGradient(
+        gradient([(0, with(azure, alpha: 0.14)), (1, with(azure, alpha: 0))]),
+        startCenter: CGPoint(x: 690, y: 560), startRadius: 0,
+        endCenter: CGPoint(x: 690, y: 560), endRadius: 340, options: []
+    )
 
-    context.saveGState()
-    context.setLineCap(.round)
-    context.setLineWidth(lineWidth)
-    context.setShadow(offset: .zero, blur: 20, color: alpha(tint, 0.82))
-    context.setStrokeColor(alpha(tint, 0.86))
-    context.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
-    context.strokePath()
-    context.restoreGState()
+    // Stars — sparse, sky only.
+    for _ in 0 ..< 42 {
+        let x = 130 + rnd() * 760
+        let y = 480 + rnd() * 420
+        let r = 0.8 + rnd() * 1.8
+        ctx.setFillColor(rgba(1, 1, 1, 0.04 + rnd() * 0.13))
+        ctx.fillEllipse(in: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
+    }
 
-    context.setLineCap(.round)
-    context.setLineWidth(lineWidth * 0.82)
-    context.setStrokeColor(tint)
-    context.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
-    context.strokePath()
-    context.restoreGState()
-}
+    // Pill geometry — floats slightly above center.
+    let pillW: CGFloat = 560, pillH: CGFloat = 172
+    let pillRect = CGRect(x: 512 - pillW / 2, y: 510 - pillH / 2, width: pillW, height: pillH)
+    let pill = CGPath(roundedRect: pillRect, cornerWidth: pillH / 2, cornerHeight: pillH / 2, transform: nil)
 
-private func drawReflectionGlow(in context: CGContext, center: CGPoint, tint: CGColor) {
-    let widths: [CGFloat] = [108, 128, 150, 166]
-    let alphas: [CGFloat] = [0.08, 0.055, 0.035, 0.018]
+    let ringXs: [CGFloat] = [512 - 172, 512, 512 + 172]
+    let ringColors = [terracotta, teal, azure]
 
-    for index in widths.indices {
-        let width = widths[index]
-        let height: CGFloat = 18 + CGFloat(index) * 8
-        let yOffset = CGFloat(index) * -17
-        let rect = CGRect(
-            x: center.x - width / 2.0,
-            y: center.y + yOffset,
-            width: width,
-            height: height
+    // Pill: drop shadow, body gradient, gloss, hairline edge.
+    ctx.saveGState()
+    ctx.setShadow(offset: CGSize(width: 0, height: -20), blur: 40, color: rgba(0, 0, 0, 0.55))
+    ctx.addPath(pill)
+    ctx.setFillColor(rgba(0, 0, 0, 1))
+    ctx.fillPath()
+    ctx.restoreGState()
+
+    ctx.saveGState()
+    ctx.addPath(pill)
+    ctx.clip()
+    ctx.drawLinearGradient(
+        gradient([(0, rgba(0, 0, 0, 1)), (0.72, rgba(0.055, 0.058, 0.075, 1)), (1, rgba(0.10, 0.105, 0.13, 1))]),
+        start: CGPoint(x: 512, y: pillRect.minY), end: CGPoint(x: 512, y: pillRect.maxY), options: []
+    )
+    ctx.drawLinearGradient(
+        gradient([(0, rgba(1, 1, 1, 0.16)), (1, rgba(1, 1, 1, 0))]),
+        start: CGPoint(x: 512, y: pillRect.maxY), end: CGPoint(x: 512, y: pillRect.maxY - 26), options: []
+    )
+    ctx.restoreGState()
+
+    ctx.addPath(pill)
+    ctx.setStrokeColor(rgba(1, 1, 1, 0.10))
+    ctx.setLineWidth(2)
+    ctx.strokePath()
+
+    // Rings: dim track, glow pass, crisp pass.
+    let radius: CGFloat = 54
+    let lineW: CGFloat = 15
+    let fractions: [CGFloat] = [0.68, 0.52, 0.30]
+    let cy = pillRect.midY
+    ctx.setLineCap(.round)
+    for ((x, c), f) in zip(zip(ringXs, ringColors), fractions) {
+        ctx.setLineWidth(lineW)
+        ctx.setStrokeColor(rgba(1, 1, 1, 0.13))
+        ctx.addArc(center: CGPoint(x: x, y: cy), radius: radius,
+                   startAngle: 0, endAngle: 2 * .pi, clockwise: false)
+        ctx.strokePath()
+
+        let start = CGFloat.pi / 2
+        let end = start - f * 2 * .pi
+        ctx.saveGState()
+        ctx.setShadow(offset: .zero, blur: 30, color: with(c, alpha: 0.95))
+        ctx.setStrokeColor(c)
+        ctx.addArc(center: CGPoint(x: x, y: cy), radius: radius,
+                   startAngle: start, endAngle: end, clockwise: true)
+        ctx.strokePath()
+        ctx.restoreGState()
+
+        ctx.setStrokeColor(c)
+        ctx.addArc(center: CGPoint(x: x, y: cy), radius: radius,
+                   startAngle: start, endAngle: end, clockwise: true)
+        ctx.strokePath()
+    }
+
+    // Soft light beams falling below the pill — elongated radial blobs, feathered.
+    for (x, c) in zip(ringXs, ringColors) {
+        ctx.saveGState()
+        ctx.clip(to: CGRect(x: x - 70, y: 140, width: 140, height: pillRect.minY - 146))
+        ctx.translateBy(x: x, y: pillRect.minY - 14)
+        ctx.scaleBy(x: 1, y: 4.0)
+        ctx.drawRadialGradient(
+            gradient([(0, with(c, alpha: 0.34)), (1, with(c, alpha: 0))]),
+            startCenter: .zero, startRadius: 0,
+            endCenter: .zero, endRadius: 36, options: []
         )
-
-        context.saveGState()
-        context.setShadow(offset: .zero, blur: 34 + CGFloat(index) * 6, color: alpha(tint, alphas[index]))
-        context.setFillColor(alpha(tint, alphas[index]))
-        context.fillEllipse(in: rect)
-        context.restoreGState()
+        ctx.restoreGState()
     }
+
+    // Diagonal sheen across the top glass.
+    ctx.drawLinearGradient(
+        gradient([(0, rgba(1, 1, 1, 0.05)), (0.45, rgba(1, 1, 1, 0.012)), (1, rgba(1, 1, 1, 0))]),
+        start: CGPoint(x: 220, y: 924), end: CGPoint(x: 700, y: 430), options: []
+    )
+
+    // Edge vignette + rim highlight.
+    ctx.drawRadialGradient(
+        gradient([(0, rgba(0, 0, 0, 0)), (0.78, rgba(0, 0, 0, 0)), (1, rgba(0, 0, 0, 0.34))]),
+        startCenter: CGPoint(x: 512, y: 512), startRadius: 0,
+        endCenter: CGPoint(x: 512, y: 512), endRadius: 620, options: []
+    )
+    ctx.addPath(path)
+    ctx.setStrokeColor(rgba(1, 1, 1, 0.06))
+    ctx.setLineWidth(2)
+    ctx.strokePath()
 }
 
-private func drawMasterIcon() throws -> CGImage {
-    let context = try makeContext(width: canvasPixels, height: canvasPixels)
-    let canvas = CGRect(x: 0, y: 0, width: canvasPixels, height: canvasPixels)
-    context.clear(canvas)
-
-    let iconRect = CGRect(x: 100, y: 100, width: 824, height: 824)
-    let iconRadius: CGFloat = 185
-    let iconPath = CGPath(roundedRect: iconRect, cornerWidth: iconRadius, cornerHeight: iconRadius, transform: nil)
-
-    context.saveGState()
-    context.setShadow(offset: CGSize(width: 0, height: -24), blur: 38, color: color(0x000000, alpha: 0.46))
-    context.addPath(iconPath)
-    context.setFillColor(color(0x000000, alpha: 0.52))
-    context.fillPath()
-    context.restoreGState()
-
-    context.saveGState()
-    context.addPath(iconPath)
-    context.clip()
-
-    context.setFillColor(color(0x0a0a0c))
-    context.fill(iconRect)
-
-    let background = gradient([
-        (color(0x1a1a1e), 0.0),
-        (color(0x101013), 0.46),
-        (color(0x0a0a0c), 1.0)
-    ])
-    context.drawLinearGradient(
-        background,
-        start: CGPoint(x: iconRect.midX, y: iconRect.maxY),
-        end: CGPoint(x: iconRect.midX, y: iconRect.minY),
-        options: []
-    )
-
-    let vignette = gradient([
-        (color(0x303039, alpha: 0.18), 0.0),
-        (color(0x151519, alpha: 0.04), 0.48),
-        (color(0x000000, alpha: 0.32), 1.0)
-    ])
-    context.drawRadialGradient(
-        vignette,
-        startCenter: CGPoint(x: iconRect.midX, y: 595),
-        startRadius: 24,
-        endCenter: CGPoint(x: iconRect.midX, y: 595),
-        endRadius: 560,
-        options: [.drawsAfterEndLocation]
-    )
-
-    context.saveGState()
-    context.clip(to: CGRect(x: iconRect.minX, y: iconRect.maxY - 220, width: iconRect.width, height: 220))
-    let topGloss = gradient([
-        (color(0xffffff, alpha: 0.12), 0.0),
-        (color(0xffffff, alpha: 0.035), 0.45),
-        (color(0xffffff, alpha: 0.0), 1.0)
-    ])
-    context.drawLinearGradient(
-        topGloss,
-        start: CGPoint(x: iconRect.midX, y: iconRect.maxY),
-        end: CGPoint(x: iconRect.midX, y: iconRect.maxY - 220),
-        options: []
-    )
-    context.restoreGState()
-
-    context.saveGState()
-    context.clip(to: CGRect(x: iconRect.minX, y: iconRect.maxY - 260, width: iconRect.width, height: 260))
-    let topEdge = CGPath(
-        roundedRect: iconRect.insetBy(dx: 1.0, dy: 1.0),
-        cornerWidth: iconRadius - 1.0,
-        cornerHeight: iconRadius - 1.0,
-        transform: nil
-    )
-    context.addPath(topEdge)
-    context.setStrokeColor(color(0xffffff, alpha: 0.18))
-    context.setLineWidth(1.0)
-    context.strokePath()
-    context.restoreGState()
-
-    let terracotta = color(0xd97757)
-    let teal = color(0x10a37f)
-    let azure = color(0x5a8cff)
-
-    let pillRect = CGRect(x: 202, y: 480, width: 620, height: 184)
-    let pillPath = CGPath(roundedRect: pillRect, cornerWidth: pillRect.height / 2.0, cornerHeight: pillRect.height / 2.0, transform: nil)
-
-    let ringCenters = [
-        CGPoint(x: 341, y: pillRect.midY + 1),
-        CGPoint(x: 512, y: pillRect.midY + 1),
-        CGPoint(x: 683, y: pillRect.midY + 1)
-    ]
-
-    drawReflectionGlow(in: context, center: CGPoint(x: ringCenters[0].x, y: pillRect.minY - 48), tint: terracotta)
-    drawReflectionGlow(in: context, center: CGPoint(x: ringCenters[1].x, y: pillRect.minY - 48), tint: teal)
-    drawReflectionGlow(in: context, center: CGPoint(x: ringCenters[2].x, y: pillRect.minY - 48), tint: azure)
-
-    context.saveGState()
-    context.setShadow(offset: CGSize(width: 0, height: -16), blur: 30, color: color(0x000000, alpha: 0.66))
-    context.addPath(pillPath)
-    context.setFillColor(color(0x000000))
-    context.fillPath()
-    context.restoreGState()
-
-    context.addPath(pillPath)
-    context.setStrokeColor(color(0xffffff, alpha: 0.075))
-    context.setLineWidth(1.25)
-    context.strokePath()
-
-    context.saveGState()
-    context.clip(to: CGRect(x: pillRect.minX, y: pillRect.midY, width: pillRect.width, height: pillRect.height / 2.0))
-    context.addPath(pillPath)
-    context.setStrokeColor(color(0xffffff, alpha: 0.16))
-    context.setLineWidth(1.0)
-    context.strokePath()
-    context.restoreGState()
-
-    drawRing(
-        in: context,
-        center: ringCenters[0],
-        radius: 48,
-        lineWidth: 15,
-        progress: 0.68,
-        startAngle: 138,
-        tint: terracotta
-    )
-    drawRing(
-        in: context,
-        center: ringCenters[1],
-        radius: 50,
-        lineWidth: 16,
-        progress: 0.79,
-        startAngle: -94,
-        tint: teal
-    )
-    drawRing(
-        in: context,
-        center: ringCenters[2],
-        radius: 48,
-        lineWidth: 15,
-        progress: 0.73,
-        startAngle: 22,
-        tint: azure
-    )
-
-    context.restoreGState()
-
-    guard let image = context.makeImage() else {
-        throw IconBuildError.imageCreationFailed
-    }
-    return image
+func makeContext(_ px: Int) -> CGContext {
+    CGContext(
+        data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
 }
 
-private func scaledImage(from source: CGImage, pixels: Int) throws -> CGImage {
-    if pixels == canvasPixels {
-        return source
-    }
+let master = makeContext(Int(S))
+draw(into: master)
+guard let masterImage = master.makeImage() else { fatalError("render failed") }
 
-    let context = try makeContext(width: pixels, height: pixels)
-    context.clear(CGRect(x: 0, y: 0, width: pixels, height: pixels))
-    context.interpolationQuality = .high
-    context.draw(source, in: CGRect(x: 0, y: 0, width: pixels, height: pixels))
+let outDir = URL(fileURLWithPath: "icon/AppIcon.iconset")
+try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
-    guard let image = context.makeImage() else {
-        throw IconBuildError.imageCreationFailed
-    }
-    return image
+let outputs: [(String, Int)] = [
+    ("icon_16x16.png", 16), ("icon_16x16@2x.png", 32),
+    ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
+    ("icon_128x128.png", 128), ("icon_128x128@2x.png", 256),
+    ("icon_256x256.png", 256), ("icon_256x256@2x.png", 512),
+    ("icon_512x512.png", 512), ("icon_512x512@2x.png", 1024),
+]
+for (name, px) in outputs {
+    let ctx = makeContext(px)
+    ctx.interpolationQuality = .high
+    ctx.draw(masterImage, in: CGRect(x: 0, y: 0, width: px, height: px))
+    guard let img = ctx.makeImage() else { fatalError("scale \(px) failed") }
+    let rep = NSBitmapImageRep(cgImage: img)
+    guard let png = rep.representation(using: .png, properties: [:]) else { fatalError("png \(px) failed") }
+    try! png.write(to: outDir.appendingPathComponent(name))
 }
-
-private func writePNG(_ image: CGImage, to url: URL) throws {
-    let representation = NSBitmapImageRep(cgImage: image)
-    guard let data = representation.representation(using: .png, properties: [:]) else {
-        throw IconBuildError.pngEncodingFailed(url.lastPathComponent)
-    }
-    try data.write(to: url, options: .atomic)
-}
-
-private func iconDirectory() -> URL {
-    let fileManager = FileManager.default
-    let cwd = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-    let argument = CommandLine.arguments.first ?? "icon/make_icon.swift"
-    let scriptURL = URL(fileURLWithPath: argument, relativeTo: cwd).standardizedFileURL
-
-    if scriptURL.lastPathComponent == "make_icon.swift" {
-        return scriptURL.deletingLastPathComponent()
-    }
-    return cwd.appendingPathComponent("icon", isDirectory: true)
-}
-
-do {
-    let fileManager = FileManager.default
-    let outputDirectory = iconDirectory().appendingPathComponent("AppIcon.iconset", isDirectory: true)
-
-    if fileManager.fileExists(atPath: outputDirectory.path) {
-        try fileManager.removeItem(at: outputDirectory)
-    }
-    try fileManager.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
-
-    let master = try drawMasterIcon()
-    let outputs: [(String, Int)] = [
-        ("icon_16x16.png", 16),
-        ("icon_16x16@2x.png", 32),
-        ("icon_32x32.png", 32),
-        ("icon_32x32@2x.png", 64),
-        ("icon_128x128.png", 128),
-        ("icon_128x128@2x.png", 256),
-        ("icon_256x256.png", 256),
-        ("icon_256x256@2x.png", 512),
-        ("icon_512x512.png", 512),
-        ("icon_512x512@2x.png", 1024)
-    ]
-
-    for (name, pixels) in outputs {
-        let image = try scaledImage(from: master, pixels: pixels)
-        try writePNG(image, to: outputDirectory.appendingPathComponent(name))
-    }
-
-    print("Wrote \(outputs.count) PNG files to \(outputDirectory.path)")
-} catch {
-    fputs("make_icon.swift: \(error)\n", stderr)
-    exit(1)
-}
+print("wrote \(outputs.count) PNGs")

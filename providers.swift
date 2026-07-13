@@ -604,6 +604,8 @@ final class UsageModel: ObservableObject {
     @Published var shownModel: String = UserDefaults.standard.string(forKey: "shownModel") ?? "" {
         didSet { UserDefaults.standard.set(shownModel, forKey: "shownModel") }
     }
+    /// Set when GitHub has a newer release than the running build (checked daily).
+    @Published var updateAvailable: String?
     var onHoverChange: ((Bool) -> Void)?
     private var timer: Timer?
     private var lastFetch = Date.distantPast
@@ -739,6 +741,7 @@ final class UsageModel: ObservableObject {
         guard !isRefreshing, !displayDark else { return }
         isRefreshing = true
         lastFetch = Date()
+        maybeCheckForUpdate()
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let result: [Provider: ProviderState] = [
                 .claude: ClaudeFetcher.fetch(),
@@ -777,6 +780,48 @@ final class UsageModel: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: Update check (once a day, GitHub releases)
+
+    private func maybeCheckForUpdate() {
+        let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        guard current != "dev", current != "ci" else { return }
+        let last = UserDefaults.standard.object(forKey: "lastUpdateCheck") as? Date ?? .distantPast
+        guard Date().timeIntervalSince(last) > 86_400 else { return }
+        UserDefaults.standard.set(Date(), forKey: "lastUpdateCheck")
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let url = URL(string: "https://api.github.com/repos/PRSTDUIO-DEV/AIsland/releases/latest") else { return }
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 15
+            let sem = DispatchSemaphore(value: 0)
+            var tag: String?
+            URLSession.shared.dataTask(with: req) { data, resp, _ in
+                if (resp as? HTTPURLResponse)?.statusCode == 200, let data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    tag = json["tag_name"] as? String
+                }
+                sem.signal()
+            }.resume()
+            sem.wait()
+            guard let tag, Self.isNewer(tag, than: current) else { return }
+            DispatchQueue.main.async {
+                self?.updateAvailable = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+            }
+        }
+    }
+
+    static func isNewer(_ tag: String, than current: String) -> Bool {
+        let normalized = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        let lhs = normalized.split(separator: ".").compactMap { Int($0) }
+        let rhs = current.split(separator: ".").compactMap { Int($0) }
+        guard !lhs.isEmpty, !rhs.isEmpty else { return false }
+        for i in 0 ..< max(lhs.count, rhs.count) {
+            let x = i < lhs.count ? lhs[i] : 0
+            let y = i < rhs.count ? rhs[i] : 0
+            if x != y { return x > y }
+        }
+        return false
     }
 
     func toggleLaunchAtLogin() {

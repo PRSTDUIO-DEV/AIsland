@@ -611,6 +611,10 @@ final class IslandController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         menu.addItem(NSMenuItem(title: "AIsland v\(version)", action: nil, keyEquivalent: ""))
+        if let update = model.updateAvailable {
+            let item = makeItem("⬆ Update to v\(update)…", #selector(menuOpenReleases))
+            menu.addItem(item)
+        }
         let quit = makeItem("Quit AIsland", #selector(menuQuit))
         quit.keyEquivalent = "q"
         menu.addItem(quit)
@@ -625,6 +629,9 @@ final class IslandController: NSObject, NSMenuDelegate {
     @objc private func menuRefresh() { model.refresh() }
     @objc private func menuToggleLogin() { model.toggleLaunchAtLogin() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
+    @objc private func menuOpenReleases() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/PRSTDUIO-DEV/AIsland/releases/latest")!)
+    }
     @objc private func menuSetStyle(_ sender: NSMenuItem) {
         model.pillStyle = PillStyle(rawValue: sender.representedObject as? String ?? "") ?? .full
     }

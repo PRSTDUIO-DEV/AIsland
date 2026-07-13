@@ -157,30 +157,43 @@ enum ClaudeFetcher {
         return plan
     }
 
+    private enum TokenResult { case token(String), loggedOut, transient }
+
     // ponytail: shells out to `security` instead of Security.framework — same result, less code
-    private static func readToken() -> String? {
+    private static func readToken() -> TokenResult {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         p.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = FileHandle.nullDevice
-        do { try p.run() } catch { return nil }
+        do { try p.run() } catch { return .transient }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
+        // 44 = errSecItemNotFound — genuinely logged out. Anything else is transient
+        // (keychain locked, denied dialog, race) and must not wipe last-good data.
+        if p.terminationStatus == 44 { return .loggedOut }
         guard p.terminationStatus == 0,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let oauth = json["claudeAiOauth"] as? [String: Any],
               let token = oauth["accessToken"] as? String
-        else { return nil }
-        return token
+        else { return .transient }
+        return .token(token)
     }
 
     static func fetch() -> ProviderState {
         var st = ProviderState()
-        guard let token = readToken() else {
+        let token: String
+        switch readToken() {
+        case .loggedOut:
             st.note = "Login via Claude Code"
             return st
+        case .transient:
+            st.connected = true
+            st.note = "Keychain busy — will retry"
+            return st
+        case .token(let t):
+            token = t
         }
         st.connected = true
         guard Date() >= cooldownUntil else {
@@ -393,16 +406,24 @@ final class UsageModel: ObservableObject {
     // ponytail: hover state lives here because bare swiftc can't load the @State macro on this SDK
     @Published var hovering = false
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @Published var onboarding = !UserDefaults.standard.bool(forKey: "didOnboard")
     var onHoverChange: ((Bool) -> Void)?
     private var timer: Timer?
     private var lastFetch = Date.distantPast
     private var isRefreshing = false
     private var hoverWork: DispatchWorkItem?
 
+    func endOnboarding() {
+        guard onboarding else { return }
+        onboarding = false
+        UserDefaults.standard.set(true, forKey: "didOnboard")
+    }
+
     func setHover(_ h: Bool) {
         hoverWork?.cancel()
         hoverWork = nil
         if h {
+            endOnboarding()
             applyHover(true)
         } else {
             // Debounce exit so edge flicker doesn't stutter the collapse animation.
@@ -433,6 +454,19 @@ final class UsageModel: ObservableObject {
         t.tolerance = 5
         RunLoop.main.add(t, forMode: .common)
         timer = t
+
+        // First run: open the card once with a hint so the pill isn't a mystery.
+        if onboarding {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self, self.onboarding else { return }
+                self.applyHover(true)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 9) { [weak self] in
+                guard let self, self.onboarding else { return }
+                self.endOnboarding()
+                self.applyHover(false)
+            }
+        }
     }
 
     func refreshIfStale() {
@@ -482,15 +516,28 @@ final class UsageModel: ObservableObject {
     }
 
     func connect(_ p: Provider) {
+        states[p, default: ProviderState()].note = "Opening Terminal…"
         let script = """
         tell application "Terminal"
             activate
             do script "\(p.loginCommand)"
         end tell
         """
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        proc.arguments = ["-e", script]
-        try? proc.run()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            proc.arguments = ["-e", script]
+            var ok = true
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                ok = proc.terminationStatus == 0
+            } catch { ok = false }
+            DispatchQueue.main.async {
+                self.states[p, default: ProviderState()].note = ok
+                    ? "Finish login in Terminal, then hit refresh"
+                    : "Couldn't open Terminal — run: \(p.loginCommand)"
+            }
+        }
     }
 }

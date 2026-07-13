@@ -4,24 +4,10 @@ set -e
 cd "$(dirname "$0")"
 
 APP=AIsland.app
+VERSION="${VERSION:-dev}"
 mkdir -p "$APP/Contents/MacOS"
 
-cat > "$APP/Contents/Info.plist" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>CFBundleIdentifier</key><string>local.aisland</string>
-	<key>CFBundleName</key><string>AIsland</string>
-	<key>CFBundleExecutable</key><string>AIsland</string>
-	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>1.2</string>
-	<key>CFBundleIconFile</key><string>AppIcon</string>
-	<key>LSMinimumSystemVersion</key><string>14.0</string>
-	<key>LSUIElement</key><true/>
-</dict>
-</plist>
-EOF
+./write-plist.sh "$APP/Contents/Info.plist" "$VERSION"
 
 swiftc -O main.swift providers.swift -o "$APP/Contents/MacOS/AIsland"
 if [ -f AppIcon.icns ]; then

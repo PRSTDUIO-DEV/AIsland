@@ -11,22 +11,7 @@ BUILD=.build
 rm -rf "$BUILD" "$DIST"
 mkdir -p "$BUILD" "$DIST" "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cat > "$APP/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>CFBundleIdentifier</key><string>local.aisland</string>
-	<key>CFBundleName</key><string>AIsland</string>
-	<key>CFBundleExecutable</key><string>AIsland</string>
-	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>$VERSION</string>
-	<key>CFBundleIconFile</key><string>AppIcon</string>
-	<key>LSMinimumSystemVersion</key><string>14.0</string>
-	<key>LSUIElement</key><true/>
-</dict>
-</plist>
-EOF
+./write-plist.sh "$APP/Contents/Info.plist" "$VERSION"
 
 echo "building arm64…"
 swiftc -O -target arm64-apple-macos14 main.swift providers.swift -o "$BUILD/AIsland-arm64"

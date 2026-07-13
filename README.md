@@ -39,3 +39,9 @@ or `xattr -dr com.apple.quarantine /Applications/AIsland.app`.
 
 First launch: macOS will ask once for Keychain access to the Claude Code
 credential — click **Always Allow**.
+
+**Update**: `brew update && brew upgrade --cask aisland` (DMG users: re-download
+from Releases). A menu-bar gauge icon mirrors everything — usage summary,
+refresh, launch-at-login, quit — for keyboard and assistive-tech access.
+
+**License**: [MIT](LICENSE)

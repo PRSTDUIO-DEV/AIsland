@@ -1,5 +1,29 @@
 import AppKit
+import Combine
 import SwiftUI
+
+// MARK: - Button styles
+
+struct PressableStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+struct FooterButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 10, weight: .medium, design: .rounded))
+            .foregroundStyle(.white.opacity(configuration.isPressed ? 0.95 : 0.55))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.white.opacity(configuration.isPressed ? 0.15 : 0.05)))
+            .contentShape(Capsule())
+    }
+}
 
 // MARK: - Small pieces
 
@@ -69,11 +93,11 @@ struct BarRow: View {
                 Text(resetText(item.resetsAt))
                     .font(.system(size: 10, design: .rounded))
                     .foregroundStyle(.white.opacity(0.4))
-                Text("\(Int(item.percent))%")
+                Text("\(item.severity != "normal" ? "⚠︎ " : "")\(Int(item.percent))%")
                     .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
                     .foregroundStyle(color)
                     .contentTransition(.numericText())
-                    .frame(width: 38, alignment: .trailing)
+                    .frame(width: item.severity != "normal" ? 52 : 38, alignment: .trailing)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -89,6 +113,9 @@ struct BarRow: View {
             }
             .frame(height: 4)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.label)
+        .accessibilityValue("\(Int(item.percent)) percent, \(resetText(item.resetsAt))")
     }
 }
 
@@ -106,9 +133,16 @@ struct ProviderChip: View {
                 Text(provider.name)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
-                Circle()
-                    .fill(isConnected ? Color(red: 0.35, green: 0.85, blue: 0.55) : .orange)
-                    .frame(width: 4, height: 4)
+                // Filled = connected, hollow = login needed — shape, not just color.
+                if isConnected {
+                    Circle()
+                        .fill(Color(red: 0.35, green: 0.85, blue: 0.55))
+                        .frame(width: 4, height: 4)
+                } else {
+                    Circle()
+                        .stroke(Color.orange, lineWidth: 1.2)
+                        .frame(width: 5, height: 5)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -122,7 +156,9 @@ struct ProviderChip: View {
                 )
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
+        .onHover { $0 ? NSCursor.pointingHand.push() : NSCursor.pop() }
+        .accessibilityLabel("\(provider.name), \(isConnected ? "connected" : "not connected")\(isSelected ? ", selected" : "")")
     }
 }
 
@@ -203,11 +239,24 @@ struct IslandRootView: View {
             .frame(maxWidth: .infinity)
         }
         .frame(height: barH)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("AIsland, \(model.selected.name) usage")
+        .accessibilityValue(
+            model.current.items.prefix(2)
+                .map { "\($0.label) \(Int($0.percent)) percent" }
+                .joined(separator: ", ")
+        )
+        .accessibilityAddTraits(.isButton)
     }
 
     private var details: some View {
         let state = model.current
         return VStack(alignment: .leading, spacing: 12) {
+            if model.onboarding {
+                Text("AIsland — hover this pill anytime to see your AI usage limits")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
             HStack(spacing: 6) {
                 ForEach(Provider.allCases) { p in
                     ProviderChip(
@@ -254,14 +303,15 @@ struct IslandRootView: View {
                 Button {
                     model.connect(model.selected)
                 } label: {
-                    Text("Connect in browser →")
+                    Text("Open Terminal to log in →")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(Capsule().fill(tint.opacity(0.85)))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableStyle())
+                .onHover { $0 ? NSCursor.pointingHand.push() : NSCursor.pop() }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -284,17 +334,17 @@ struct IslandRootView: View {
                 model.toggleLaunchAtLogin()
             }
             footerButton("refresh") { model.refresh() }
+            Divider()
+                .frame(height: 10)
+                .overlay(Color.white.opacity(0.2))
             footerButton("quit") { NSApp.terminate(nil) }
         }
     }
 
     private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.55))
-        }
-        .buttonStyle(.plain)
+        Button(title, action: action)
+            .buttonStyle(FooterButtonStyle())
+            .onHover { $0 ? NSCursor.pointingHand.push() : NSCursor.pop() }
     }
 }
 
@@ -315,9 +365,11 @@ final class IslandHostingView: NSHostingView<IslandRootView> {
     @objc required dynamic init?(coder: NSCoder) { fatalError("not used") }
 }
 
-final class IslandController {
+final class IslandController: NSObject, NSMenuDelegate {
     let panel: NSPanel
     let model = UsageModel()
+    private let statusItem: NSStatusItem
+    private var cancellables = Set<AnyCancellable>()
     private var screen: NSScreen?
     private var hostView: IslandHostingView?
     private var notchW: CGFloat = 172
@@ -325,7 +377,8 @@ final class IslandController {
     private static let wing: CGFloat = 104
     private static let maxHeight: CGFloat = 420
 
-    init() {
+    override init() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         panel = NSPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -340,7 +393,30 @@ final class IslandController {
         panel.acceptsMouseMovedEvents = true
         panel.becomesKeyOnlyIfNeeded = true
 
+        super.init()
+
+        // Status-bar menu: every command reachable without hover (keyboard / VoiceOver path).
+        if let img = NSImage(systemSymbolName: "gauge", accessibilityDescription: "AIsland") {
+            statusItem.button?.image = img
+        } else {
+            statusItem.button?.title = "AI"
+        }
+        let menu = NSMenu()
+        menu.delegate = self
+        statusItem.menu = menu
+
         model.onHoverChange = { [weak self] hovering in self?.setExpanded(hovering) }
+        // Keep the interactive hit area in sync when the card height changes mid-hover
+        // (provider switch, refresh adding rows) — not just on hover transitions.
+        model.$selected
+            .combineLatest(model.$states, model.$onboarding)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _, _, _ in
+                guard let self, self.model.hovering else { return }
+                self.setExpanded(true)
+            }
+            .store(in: &cancellables)
+
         reposition()
         panel.orderFrontRegardless()
         model.start()
@@ -391,10 +467,50 @@ final class IslandController {
 
     private func expandedHeight() -> CGFloat {
         let state = model.current
-        guard !state.items.isEmpty else { return barH + 190 }
+        let onboardExtra: CGFloat = model.onboarding ? 24 : 0
+        guard !state.items.isEmpty else { return barH + 200 + onboardExtra }
         let noteExtra: CGFloat = state.note != nil ? 18 : 0
-        return barH + 140 + CGFloat(state.items.count) * 36 + noteExtra
+        return barH + 152 + CGFloat(state.items.count) * 36 + noteExtra + onboardExtra
     }
+
+    // MARK: Status-bar menu
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        for p in Provider.allCases {
+            let st = model.states[p] ?? ProviderState()
+            let text: String
+            if st.items.isEmpty {
+                text = "\(p.name): \(st.connected ? "connected" : "not connected")"
+            } else {
+                text = "\(p.name):  " + st.items.prefix(2)
+                    .map { "\($0.short) \(Int($0.percent))%" }
+                    .joined(separator: " · ")
+            }
+            menu.addItem(NSMenuItem(title: text, action: nil, keyEquivalent: ""))
+        }
+        menu.addItem(.separator())
+        menu.addItem(makeItem("Refresh Now", #selector(menuRefresh)))
+        let login = makeItem("Launch at Login", #selector(menuToggleLogin))
+        login.state = model.launchAtLogin ? .on : .off
+        menu.addItem(login)
+        menu.addItem(.separator())
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        menu.addItem(NSMenuItem(title: "AIsland v\(version)", action: nil, keyEquivalent: ""))
+        let quit = makeItem("Quit AIsland", #selector(menuQuit))
+        quit.keyEquivalent = "q"
+        menu.addItem(quit)
+    }
+
+    private func makeItem(_ title: String, _ selector: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
+        item.target = self
+        return item
+    }
+
+    @objc private func menuRefresh() { model.refresh() }
+    @objc private func menuToggleLogin() { model.toggleLaunchAtLogin() }
+    @objc private func menuQuit() { NSApp.terminate(nil) }
 }
 
 // MARK: - Main

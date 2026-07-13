@@ -661,13 +661,13 @@ final class UsageModel: ObservableObject {
         guard !isRefreshing, !displayDark else { return }
         isRefreshing = true
         lastFetch = Date()
-        DispatchQueue.global(qos: .utility).async {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
             let result: [Provider: ProviderState] = [
                 .claude: ClaudeFetcher.fetch(),
                 .gpt: CodexFetcher.fetch(),
                 .gemini: GeminiFetcher.fetch(),
             ]
-            DispatchQueue.main.async { [weak self] in
+            DispatchQueue.main.async {
                 guard let self else { return }
                 self.isRefreshing = false
                 // Keep last good data when a provider hiccups (network blip, log rotation).

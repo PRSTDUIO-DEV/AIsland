@@ -194,15 +194,22 @@ enum ClaudeFetcher {
         let sem = DispatchSemaphore(value: 0)
         var fetched: Data?
         var failure = "Request timed out"
-        var rateLimited = false
+        var backoff: TimeInterval = 0
         URLSession.shared.dataTask(with: req) { data, resp, error in
             defer { sem.signal() }
             if let error { failure = error.localizedDescription; return }
-            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-                switch (resp as? HTTPURLResponse)?.statusCode ?? 0 {
-                case 401: failure = "Token expired — open Claude Code to refresh it"
-                case 429: failure = "Rate limited — retrying soon"; rateLimited = true
-                case let code: failure = "HTTP \(code)"
+            let http = resp as? HTTPURLResponse
+            guard http?.statusCode == 200 else {
+                switch http?.statusCode ?? 0 {
+                case 401:
+                    failure = "Token expired — open Claude Code to refresh it"
+                case 429:
+                    // Respect the API's Retry-After hint; default to a short 90s otherwise.
+                    let hinted = Double(http?.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 90
+                    backoff = min(max(hinted, 60), 600)
+                    failure = "Rate limited — retrying in \(Int(backoff))s"
+                case let code:
+                    failure = "HTTP \(code)"
                 }
                 return
             }
@@ -210,7 +217,7 @@ enum ClaudeFetcher {
         }.resume()
         sem.wait()
 
-        if rateLimited { cooldownUntil = Date().addingTimeInterval(300) }
+        if backoff > 0 { cooldownUntil = Date().addingTimeInterval(backoff) }
         guard let data = fetched else {
             NSLog("AIsland claude: no data — %@", failure)
             st.note = failure
@@ -222,7 +229,7 @@ enum ClaudeFetcher {
             // The API rate-limits with a 200 + error body sometimes; back off either way.
             NSLog("AIsland claude: empty/undecodable body: %@",
                   String(decoding: data.prefix(160), as: UTF8.self))
-            cooldownUntil = Date().addingTimeInterval(300)
+            cooldownUntil = Date().addingTimeInterval(90)
             st.note = "API busy — retrying soon"
             return st
         }

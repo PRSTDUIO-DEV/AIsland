@@ -1,0 +1,47 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: ปัจจุบัน
+      - text: 3 วง + ป้ายครบ(กว้างสุด)
+    - generic [ref=e5]:
+      - generic [ref=e6]: ✳
+      - generic [ref=e7]:
+        - generic [ref=e9]: 5h
+        - text: 6%
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - generic [ref=e13]: 7d
+          - text: 66%
+        - generic [ref=e14]:
+          - generic [ref=e16]: Fable
+          - text: 53%
+  - generic [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]: A — ตัดป้ายทิ้ง
+      - text: 3 วงเรียงตามลำดับ5h · 7d · model
+    - generic [ref=e20]:
+      - generic [ref=e21]: ✳
+      - generic [ref=e22]: 6%
+      - generic [ref=e24]:
+        - generic [ref=e25]: 66%
+        - generic [ref=e27]: 53%
+  - generic [ref=e29]:
+    - generic [ref=e30]:
+      - generic [ref=e31]: B — ตัวที่บีบสุด
+      - text: ขวาโชว์เฉพาะ limitที่สูงสุดอัตโนมัติ
+    - generic [ref=e32]:
+      - generic [ref=e33]: ✳
+      - generic [ref=e34]:
+        - generic [ref=e36]: 5h
+        - text: 6%
+      - generic [ref=e38]:
+        - generic [ref=e40]: 7d
+        - text: 66%
+  - generic [ref=e41]:
+    - generic [ref=e42]:
+      - generic [ref=e43]: C — จุดสถานะ
+      - text: เลขเดียว (ตัวแย่สุด)+ จุดสี 3 limit
+    - generic [ref=e44]:
+      - generic [ref=e45]: ✳
+      - generic [ref=e46]: 66%
+      - generic [ref=e47]: Fable

@@ -49,6 +49,17 @@ struct UsageItem: Identifiable {
     let resetsAt: Date?
 }
 
+enum PillStyle: String, CaseIterable {
+    case full, compact, dots
+    var label: String {
+        switch self {
+        case .full: "Full — rings + labels"
+        case .compact: "Compact — rings only"
+        case .dots: "Dots — worst % + status dots"
+        }
+    }
+}
+
 struct ProviderState {
     var items: [UsageItem] = []
     var connected = false
@@ -545,6 +556,14 @@ final class UsageModel: ObservableObject {
     @Published var hovering = false
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     @Published var onboarding = !UserDefaults.standard.bool(forKey: "didOnboard")
+    @Published var pillStyle: PillStyle =
+        PillStyle(rawValue: UserDefaults.standard.string(forKey: "pillStyle") ?? "") ?? .full {
+        didSet { UserDefaults.standard.set(pillStyle.rawValue, forKey: "pillStyle") }
+    }
+    /// "" = auto (first scoped model), "hidden" = no model gauge, else the model's display name.
+    @Published var shownModel: String = UserDefaults.standard.string(forKey: "shownModel") ?? "" {
+        didSet { UserDefaults.standard.set(shownModel, forKey: "shownModel") }
+    }
     var onHoverChange: ((Bool) -> Void)?
     private var timer: Timer?
     private var lastFetch = Date.distantPast
@@ -611,6 +630,25 @@ final class UsageModel: ObservableObject {
     }
 
     var current: ProviderState { states[selected] ?? ProviderState() }
+
+    /// What the collapsed pill shows: base limits plus the chosen per-model gauge.
+    func collapsedItems(_ state: ProviderState) -> [UsageItem] {
+        let base = state.items.filter { !$0.id.hasPrefix("weekly_scoped") && $0.id != "extra" }
+        guard selected == .claude else { return Array(base.prefix(2)) }
+        var out = Array(base.prefix(2))
+        let scoped = state.items.filter { $0.id.hasPrefix("weekly_scoped") }
+        if shownModel != "hidden",
+           let pick = scoped.first(where: { $0.short == shownModel }) ?? scoped.first {
+            out.append(pick)
+        }
+        return out
+    }
+
+    var scopedModels: [String] {
+        (states[.claude]?.items ?? [])
+            .filter { $0.id.hasPrefix("weekly_scoped") }
+            .map(\.short)
+    }
 
     func start() {
         refresh()

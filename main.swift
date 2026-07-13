@@ -59,13 +59,16 @@ struct Ring: View {
 struct MiniGauge: View {
     let item: UsageItem?
     let tint: Color
+    var showTag = true
     var body: some View {
         HStack(spacing: 5) {
             Ring(item: item, tint: tint).frame(width: 14, height: 14)
             if let item {
-                Text(item.short)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.45))
+                if showTag {
+                    Text(item.short)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.45))
+                }
                 Text("\(Int(item.percent))%")
                     .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(.white)
@@ -215,20 +218,38 @@ struct IslandRootView: View {
 
     private var collapsedRow: some View {
         let state = model.current
+        let items = model.collapsedItems(state)
+        let style = model.pillStyle
+        let showTag = style == .full
         return HStack(spacing: 0) {
             HStack(spacing: 6) {
                 Text(model.selected.glyph)
                     .font(.system(size: 11))
                     .foregroundStyle(tint)
-                MiniGauge(item: state.items.first, tint: tint)
+                if style == .dots, let worst = items.map(\.percent).max() {
+                    Text("\(Int(worst))%")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                } else {
+                    MiniGauge(item: items.first, tint: tint, showTag: showTag)
+                }
             }
             .frame(maxWidth: .infinity)
             Color.clear.frame(width: notchW)
             HStack(spacing: 8) {
-                if state.items.count > 1 {
-                    MiniGauge(item: state.items[1], tint: tint)
-                    if state.items.count > 2 {
-                        MiniGauge(item: state.items[2], tint: tint)
+                if style == .dots, !items.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(items) { item in
+                            Circle()
+                                .fill(dotColor(item))
+                                .frame(width: 5, height: 5)
+                        }
+                    }
+                } else if items.count > 1 {
+                    MiniGauge(item: items[1], tint: tint, showTag: showTag)
+                    if items.count > 2 {
+                        MiniGauge(item: items[2], tint: tint, showTag: showTag)
                     }
                 } else {
                     Circle()
@@ -250,6 +271,12 @@ struct IslandRootView: View {
                 .joined(separator: ", ")
         )
         .accessibilityAddTraits(.isButton)
+    }
+
+    private func dotColor(_ item: UsageItem) -> Color {
+        if item.severity != "normal" || item.percent >= 90 { return Color(red: 1.0, green: 0.33, blue: 0.33) }
+        if item.percent >= 70 { return .orange }
+        return Color(red: 0.35, green: 0.85, blue: 0.55)
     }
 
     private var details: some View {
@@ -397,8 +424,10 @@ final class IslandController: NSObject, NSMenuDelegate {
     private static let wing: CGFloat = 104
     private static let maxHeight: CGFloat = 420
 
-    // Wider wings when a third gauge (per-model limit) is showing.
-    private var wingWidth: CGFloat { model.current.items.count > 2 ? 150 : Self.wing }
+    // Wider wings only for the full style with a third gauge (per-model limit).
+    private var wingWidth: CGFloat {
+        model.pillStyle == .full && model.collapsedItems(model.current).count > 2 ? 150 : Self.wing
+    }
 
     override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -433,10 +462,11 @@ final class IslandController: NSObject, NSMenuDelegate {
         // (provider switch, refresh adding rows) — not just on hover transitions.
         model.$selected
             .combineLatest(model.$states, model.$onboarding)
+            .combineLatest(model.$pillStyle, model.$shownModel)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _, _, _ in
+            .sink { [weak self] _ in
                 guard let self else { return }
-                // Re-frame even when collapsed — the pill width depends on gauge count.
+                // Re-frame even when collapsed — the pill width depends on style and gauge count.
                 self.setExpanded(self.model.hovering)
             }
             .store(in: &cancellables)
@@ -527,6 +557,42 @@ final class IslandController: NSObject, NSMenuDelegate {
         let login = makeItem("Launch at Login", #selector(menuToggleLogin))
         login.state = model.launchAtLogin ? .on : .off
         menu.addItem(login)
+
+        let styleItem = NSMenuItem(title: "Pill Style", action: nil, keyEquivalent: "")
+        let styleMenu = NSMenu()
+        for style in PillStyle.allCases {
+            let item = NSMenuItem(title: style.label, action: #selector(menuSetStyle(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = style.rawValue
+            item.state = model.pillStyle == style ? .on : .off
+            styleMenu.addItem(item)
+        }
+        menu.setSubmenu(styleMenu, for: styleItem)
+        menu.addItem(styleItem)
+
+        let models = model.scopedModels
+        if !models.isEmpty {
+            let modelItem = NSMenuItem(title: "Model Gauge", action: nil, keyEquivalent: "")
+            let modelMenu = NSMenu()
+            let effective = model.shownModel == "hidden"
+                ? nil
+                : (models.contains(model.shownModel) ? model.shownModel : models.first)
+            for name in models {
+                let item = NSMenuItem(title: name, action: #selector(menuSetModel(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = name
+                item.state = effective == name ? .on : .off
+                modelMenu.addItem(item)
+            }
+            modelMenu.addItem(.separator())
+            let hide = NSMenuItem(title: "Hidden", action: #selector(menuSetModel(_:)), keyEquivalent: "")
+            hide.target = self
+            hide.representedObject = "hidden"
+            hide.state = model.shownModel == "hidden" ? .on : .off
+            modelMenu.addItem(hide)
+            menu.setSubmenu(modelMenu, for: modelItem)
+            menu.addItem(modelItem)
+        }
         menu.addItem(.separator())
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         menu.addItem(NSMenuItem(title: "AIsland v\(version)", action: nil, keyEquivalent: ""))
@@ -544,6 +610,12 @@ final class IslandController: NSObject, NSMenuDelegate {
     @objc private func menuRefresh() { model.refresh() }
     @objc private func menuToggleLogin() { model.toggleLaunchAtLogin() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
+    @objc private func menuSetStyle(_ sender: NSMenuItem) {
+        model.pillStyle = PillStyle(rawValue: sender.representedObject as? String ?? "") ?? .full
+    }
+    @objc private func menuSetModel(_ sender: NSMenuItem) {
+        model.shownModel = sender.representedObject as? String ?? ""
+    }
 }
 
 // MARK: - Main
